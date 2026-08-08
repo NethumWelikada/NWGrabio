@@ -24,13 +24,14 @@ The engine that does the downloading, yt-dlp, and the tool needed to combine hig
 
 ```
 NWGrabio/
-  main.py            The application source code
-  requirements.txt   Python dependencies used only for building
-  build.bat           Builds NWGrabio.exe AND NWGrabio-Setup.exe
-  installer.iss       Inno Setup script that defines the installer wizard
-  run.bat             Optional: run the app from source while developing
-  icon.ico            Application icon
-  README.md           This guide
+  main.py               The application source code
+  requirements.txt      Python dependencies used only for building
+  file_version_info.txt  Publisher and product metadata embedded into the exe
+  build.bat              Builds NWGrabio AND NWGrabio-Setup.exe
+  installer.iss           Inno Setup script that defines the installer wizard
+  run.bat                 Optional: run the app from source while developing
+  icon.ico                 Application icon
+  README.md                This guide
 ```
 
 ---
@@ -56,6 +57,22 @@ This also means that any time you change `main.py` in the future and push the up
 
 If you do have access to a Windows computer, you can build the same file locally instead of using GitHub.
 
+## About the "Windows protected your PC" warning
+
+When someone runs `NWGrabio-Setup.exe` for the first time, Windows SmartScreen may show a blue "Windows protected your PC" screen. This is standard behavior for any new application from any developer, not a sign of a problem with NWGrabio. It happens because SmartScreen trusts files based on two things: whether they carry a paid code-signing certificate, and how many people have already run that exact file (its "reputation"). A brand new file has neither yet.
+
+What this build already does to minimize false flags:
+- Uses PyInstaller's onedir mode instead of onefile. Onefile builds self-extract to a temporary folder every time they run, which many antivirus engines flag as suspicious behavior even when the app is harmless. Onedir avoids that pattern entirely, at the cost of shipping a small folder of files instead of a single exe, which the Setup installer already handles for you.
+- Embeds real publisher and product metadata into the executable (via `file_version_info.txt`), so right-clicking NWGrabio.exe and choosing Properties > Details shows a real company name, product name, and version instead of blank fields.
+
+What removes the warning completely:
+- A code-signing certificate. These are issued by certificate authorities such as DigiCert, Sectigo, or SSL.com, typically 100 to 400 USD per year for a standard certificate, or immediate SmartScreen trust with an Extended Validation certificate at a higher cost. Once signed, you use `signtool.exe` (comes with the Windows SDK) to sign `dist\NWGrabio\NWGrabio.exe` before building the installer.
+- For open source projects specifically, SignPath.io offers free code signing, including a GitHub Actions integration, through their open source program. Worth looking into if you plan to distribute NWGrabio publicly and want a fully clean install experience without paying.
+- Regardless of signing, reputation still builds over time and downloads. You can speed this up slightly by submitting your build to Microsoft directly at https://www.microsoft.com/en-us/wdsi/filesubmission for analysis.
+
+Telling users "click More info, then Run anyway" on your download page is normal, common practice for independent developers distributing unsigned software, and does not indicate anything is wrong with the file.
+
+
 
 
 1. Go to https://www.python.org/downloads/
@@ -73,7 +90,7 @@ Inno Setup is the free tool that turns the app into a real Setup.exe wizard.
 1. Go to https://jrsoftware.org/isdl.php
 2. Download and run the installer, keep the default options.
 
-If you skip this step, `build.bat` will still work and will produce `dist\NWGrabio.exe`, a standalone app you can run directly. It just will not produce the Setup wizard version. You can install Inno Setup later and rerun `build.bat` at any time.
+If you skip this step, `build.bat` will still work and will produce `dist\NWGrabio\NWGrabio.exe`, a standalone app you can run directly. It just will not produce the Setup wizard version. You can install Inno Setup later and rerun `build.bat` at any time.
 
 ---
 
@@ -89,7 +106,7 @@ Double click `build.bat` and wait. It will:
 
 1. Create a private Python environment inside the folder so nothing is installed system-wide.
 2. Install yt-dlp, ffmpeg's engine, and PyInstaller into that environment.
-3. Compile everything into `dist\NWGrabio.exe`, a single file with yt-dlp and ffmpeg built in.
+3. Compile everything into `dist\NWGrabio\NWGrabio.exe`, along with a folder of supporting files, with yt-dlp and ffmpeg built in.
 4. If Inno Setup is installed, automatically compile `Output\NWGrabio-Setup.exe`, the installer wizard.
 
 This takes one to three minutes depending on your machine and only needs to be done once, or again later if you change `main.py`.
@@ -103,7 +120,7 @@ This takes one to three minutes depending on your machine and only needs to be d
 3. Click Finish. NWGrabio is now installed like any other Windows program and can be launched from the Start Menu or its desktop shortcut.
 4. To remove it later, use "Add or Remove Programs" in Windows Settings, same as any other app.
 
-You can also skip the installer and just hand someone `dist\NWGrabio.exe` directly, it runs standalone with no installation step, though it will not appear in the Start Menu or Add/Remove Programs.
+You can also skip the installer and just hand someone the whole `dist\NWGrabio\` folder directly and have them run `NWGrabio.exe` inside it, it runs standalone with no installation step, though it will not appear in the Start Menu or Add/Remove Programs.
 
 ---
 
@@ -167,7 +184,7 @@ If you are editing `main.py` and want to test quickly without building an exe ea
 This means you launched `main.py` directly with a plain Python install that never had `pip install -r requirements.txt` run against it. Use `run.bat` for development, or better, use `build.bat` to produce the self-contained `NWGrabio.exe` and `NWGrabio-Setup.exe`, which have both bundled in and never show this message.
 
 **Inno Setup section is skipped during build.bat**
-This means Inno Setup is not installed. Install it from https://jrsoftware.org/isdl.php with default settings, then run `build.bat` again. `dist\NWGrabio.exe` still works fine on its own in the meantime.
+This means Inno Setup is not installed. Install it from https://jrsoftware.org/isdl.php with default settings, then run `build.bat` again. `dist\NWGrabio\NWGrabio.exe` still works fine on its own in the meantime.
 
 **Windows SmartScreen warning when opening NWGrabio-Setup.exe or NWGrabio.exe**
 This is expected for any new, unsigned application. Click "More info" then "Run anyway". This happens because the app is not yet code-signed with a paid certificate, not because of a virus.

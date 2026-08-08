@@ -31,14 +31,18 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo.
-echo Building NWGrabio.exe with yt-dlp and ffmpeg bundled inside...
-pyinstaller --noconfirm --onefile --windowed ^
+echo Building NWGrabio with yt-dlp and ffmpeg bundled inside...
+echo Using onedir mode: this avoids the self-extracting behavior of onefile
+echo builds, which many antivirus engines flag as suspicious even when the
+echo app is completely clean.
+pyinstaller --noconfirm --onedir --windowed ^
   --name NWGrabio ^
   --icon icon.ico ^
+  --version-file file_version_info.txt ^
   --collect-all imageio_ffmpeg ^
   main.py
 
-if not exist dist\NWGrabio.exe (
+if not exist dist\NWGrabio\NWGrabio.exe (
     echo.
     echo Build failed. See the messages above for details.
     pause
@@ -46,7 +50,7 @@ if not exist dist\NWGrabio.exe (
 )
 
 echo.
-echo dist\NWGrabio.exe created successfully.
+echo dist\NWGrabio\NWGrabio.exe created successfully.
 echo.
 
 REM Look for the Inno Setup compiler in its usual install locations.
@@ -60,14 +64,14 @@ if defined ISCC (
     echo.
     echo ============================================
     echo Build finished.
-    echo Standalone app:   dist\NWGrabio.exe
-    echo Setup installer:  Output\NWGrabio-Setup.exe
+    echo Standalone app folder: dist\NWGrabio\
+    echo Setup installer:       Output\NWGrabio-Setup.exe
     echo.
     echo Give NWGrabio-Setup.exe to anyone. They just double click it and
     echo follow the wizard, like installing any normal Windows program.
     echo ============================================
 ) else (
-    echo Inno Setup was not found, so only the standalone exe was built.
+    echo Inno Setup was not found, so only the standalone app was built.
     echo.
     echo To also get a proper Setup.exe installer with a wizard, Start Menu
     echo shortcut, and uninstaller:
@@ -77,7 +81,7 @@ if defined ISCC (
     echo.
     echo ============================================
     echo Build finished.
-    echo Standalone app: dist\NWGrabio.exe
+    echo Standalone app folder: dist\NWGrabio\
     echo ============================================
 )
 

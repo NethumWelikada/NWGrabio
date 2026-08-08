@@ -12,6 +12,8 @@ import sys
 import queue
 import threading
 import subprocess
+import webbrowser
+import urllib.request
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -25,11 +27,27 @@ try:
 except ImportError:
     imageio_ffmpeg = None
 
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = None
+    ImageTk = None
+
 APP_NAME = "NWGrabio"
-APP_TAGLINE = "Universal Video Downloader"
-DEVELOPER_LINE_1 = "Developed by Nethum Welikada"
-DEVELOPER_LINE_2 = "Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada"
-DEVELOPER_LINE_3 = "GitHub: github.com/NethumWelikada"
+APP_TAGLINE = "Grab Anything, From Anywhere."
+APP_VERSION = "1.1.0"
+DEVELOPER_NAME = "Nethum Welikada"
+DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
+DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"
+DEVELOPER_GITHUB_LABEL = "github.com/NethumWelikada"
+DEVELOPER_GITHUB_URL = "https://github.com/NethumWelikada"
+
+
+def resource_path(relative_path):
+    """Resolve a bundled resource path whether running from source or from
+    a PyInstaller build (onefile or onedir)."""
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 # Color palette. Dark theme, brand accent colors.
 BG_DARK = "#1A1A1A"
@@ -98,40 +116,220 @@ class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} - {APP_TAGLINE}")
-        self.geometry("880x680")
-        self.minsize(760, 600)
+        self.geometry("900x720")
+        self.minsize(780, 640)
         self.configure(bg=BG_DARK)
+
+        try:
+            self.iconbitmap(resource_path("icon.ico"))
+        except Exception:
+            pass
 
         self.output_dir = tk.StringVar(value=get_default_download_folder())
         self.url_var = tk.StringVar()
         self.quality_var = tk.StringVar(value=list(QUALITY_OPTIONS.keys())[0])
         self.status_var = tk.StringVar(value="Ready")
-        self.title_var = tk.StringVar(value="No video loaded yet")
+        self.title_var = tk.StringVar(value="Paste a link and click Fetch Info to preview it here.")
         self.progress_value = tk.DoubleVar(value=0.0)
+        self.thumbnail_photo = None
 
         self.msg_queue = queue.Queue()
         self.download_thread = None
         self.cancel_flag = threading.Event()
 
         self._build_style()
+        self._build_menu()
         self._build_layout()
         self._poll_queue()
 
         self.ffmpeg_path = get_ffmpeg_path()
 
         if yt_dlp is None:
-            self._log("yt-dlp module not found. Install requirements first: pip install -r requirements.txt", ERROR)
+            self._log("The download engine is missing from this build. Please reinstall NWGrabio.", ERROR)
 
         if self.ffmpeg_path is None:
             self._log(
-                "ffmpeg was not detected. Merging separate high resolution video "
-                "and audio streams (needed for most 4K and 8K downloads) requires "
-                "ffmpeg. Run install.bat once, which installs the bundled ffmpeg "
-                "engine automatically. See the installation guide.",
+                "The media processing engine was not detected. Some high "
+                "resolution downloads may not be available. Please reinstall "
+                "NWGrabio.",
                 ACCENT_2,
             )
         else:
-            self._log("ffmpeg engine ready.", SUCCESS)
+            self._log("Ready. Paste a link above to get started, or click How it works for a quick guide.", SUCCESS)
+
+        self._check_clipboard_for_link()
+        self.after(600, self._maybe_show_first_run_help)
+
+    def _check_clipboard_for_link(self):
+        try:
+            clip = self.clipboard_get().strip()
+        except Exception:
+            return
+        if clip.lower().startswith(("http://", "https://")) and not self.url_var.get():
+            self.url_var.set(clip)
+            self._log("Detected a link on your clipboard and filled it in automatically.")
+
+    def _maybe_show_first_run_help(self):
+        marker = os.path.join(os.path.expanduser("~"), ".nwgrabio_seen_help")
+        if os.path.exists(marker):
+            return
+        try:
+            with open(marker, "w") as f:
+                f.write("1")
+        except Exception:
+            pass
+        self._show_help()
+
+    # ---------- menu & about ----------
+
+    def _build_menu(self):
+        menubar = tk.Menu(self, tearoff=0, bg=BG_PANEL, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
+
+        file_menu = tk.Menu(menubar, tearoff=0, bg=BG_PANEL, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
+        file_menu.add_command(label="Choose download folder...", command=self._browse_folder)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.destroy)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0, bg=BG_PANEL, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
+        help_menu.add_command(label="How to use NWGrabio", command=self._show_help)
+        help_menu.add_command(label="Supported sites", command=self._show_supported_sites)
+        help_menu.add_separator()
+        help_menu.add_command(label="About NWGrabio", command=self._show_about)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        self.config(menu=menubar)
+
+    def _dialog_shell(self, title, width=520, height=460):
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.configure(bg=BG_DARK)
+        win.geometry(f"{width}x{height}")
+        win.minsize(width, height)
+        win.transient(self)
+        try:
+            win.iconbitmap(resource_path("icon.ico"))
+        except Exception:
+            pass
+        win.grab_set()
+        return win
+
+    def _show_about(self):
+        win = self._dialog_shell(f"About {APP_NAME}", 520, 420)
+
+        ttk.Label(win, text=APP_NAME, style="Title.TLabel").pack(anchor="w", padx=24, pady=(24, 0))
+        ttk.Label(win, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w", padx=24, pady=(2, 16))
+
+        body = tk.Frame(win, bg=BG_DARK)
+        body.pack(fill="both", expand=True, padx=24)
+
+        def row(label, value):
+            r = tk.Frame(body, bg=BG_DARK)
+            r.pack(fill="x", pady=4)
+            tk.Label(r, text=label, bg=BG_DARK, fg=FG_MUTED, font=("Segoe UI", 9), width=14, anchor="w").pack(side="left")
+            tk.Label(r, text=value, bg=BG_DARK, fg=FG_TEXT, font=("Segoe UI", 10), anchor="w", wraplength=340, justify="left").pack(side="left", fill="x")
+
+        row("Version", APP_VERSION)
+        row("Developer", DEVELOPER_NAME)
+        row("Program", DEVELOPER_PROGRAM)
+        row("University", DEVELOPER_SCHOOL)
+
+        link = tk.Label(
+            body, text=DEVELOPER_GITHUB_LABEL, bg=BG_DARK, fg=ACCENT,
+            font=("Segoe UI", 10, "underline"), cursor="hand2", anchor="w"
+        )
+        link.pack(fill="x", pady=(8, 0))
+        link.bind("<Button-1>", lambda e: webbrowser.open(DEVELOPER_GITHUB_URL))
+
+        ttk.Label(
+            win,
+            text="Built with yt-dlp and ffmpeg, both open source projects, "
+                 "used under their own licenses.",
+            style="Muted.TLabel",
+            wraplength=460,
+            justify="left",
+        ).pack(anchor="w", padx=24, pady=(20, 0))
+
+        ttk.Button(win, text="Close", style="Secondary.TButton", command=win.destroy).pack(
+            anchor="e", padx=24, pady=20
+        )
+
+    def _show_help(self):
+        win = self._dialog_shell("How to use NWGrabio", 560, 560)
+
+        ttk.Label(win, text="How to use NWGrabio", style="Title.TLabel").pack(
+            anchor="w", padx=24, pady=(24, 4)
+        )
+        ttk.Label(
+            win, text="Four steps, no technical knowledge needed.",
+            style="Tagline.TLabel"
+        ).pack(anchor="w", padx=24, pady=(0, 16))
+
+        steps = [
+            ("1. Copy a link", "Open YouTube, Facebook, TikTok, Instagram, or almost any other site in your browser and copy the video's link."),
+            ("2. Paste it in NWGrabio", "Click the URL box and press Ctrl+V, or click the Paste button."),
+            ("3. Pick a quality", "Click Fetch Info to see what you are about to download, then choose a quality from the dropdown. Best Available automatically picks the highest resolution the source offers, up to 8K."),
+            ("4. Click Download", "Watch the progress bar. When it says Download complete, your file is in the folder shown, your Downloads folder by default."),
+        ]
+
+        body = tk.Frame(win, bg=BG_DARK)
+        body.pack(fill="both", expand=True, padx=24)
+
+        for heading, text in steps:
+            card = tk.Frame(body, bg=BG_PANEL, highlightbackground=BORDER, highlightthickness=1)
+            card.pack(fill="x", pady=6)
+            tk.Label(card, text=heading, bg=BG_PANEL, fg=ACCENT, font=("Segoe UI", 10, "bold"), anchor="w").pack(
+                fill="x", padx=14, pady=(10, 2)
+            )
+            tk.Label(
+                card, text=text, bg=BG_PANEL, fg=FG_TEXT, font=("Segoe UI", 9),
+                anchor="w", justify="left", wraplength=480
+            ).pack(fill="x", padx=14, pady=(0, 10))
+
+        ttk.Label(
+            win,
+            text="Tip: choosing Audio Only (MP3) downloads just the sound track, useful for music or podcasts.",
+            style="Muted.TLabel",
+            wraplength=500,
+            justify="left",
+        ).pack(anchor="w", padx=24, pady=(14, 0))
+
+        ttk.Button(win, text="Got it", style="Accent.TButton", command=win.destroy).pack(
+            anchor="e", padx=24, pady=20
+        )
+
+    def _show_supported_sites(self):
+        win = self._dialog_shell("Supported sites", 480, 420)
+        ttk.Label(win, text="Supported sites", style="Title.TLabel").pack(anchor="w", padx=24, pady=(24, 4))
+        ttk.Label(
+            win,
+            text="NWGrabio works with over a thousand sites through the yt-dlp engine, including:",
+            style="Panel.TLabel", wraplength=420, justify="left"
+        ).pack(anchor="w", padx=24, pady=(0, 12))
+
+        sites = [
+            "YouTube (videos, Shorts, playlists)", "Facebook (public videos and reels)",
+            "TikTok", "Instagram (public posts and reels)", "Twitter / X",
+            "Vimeo", "Reddit", "Dailymotion", "Twitch clips",
+            "Most news, blog, and media sites",
+        ]
+        body = tk.Frame(win, bg=BG_DARK)
+        body.pack(fill="both", expand=True, padx=24)
+        for s in sites:
+            row = tk.Frame(body, bg=BG_DARK)
+            row.pack(fill="x", pady=3)
+            tk.Label(row, text="•", bg=BG_DARK, fg=ACCENT, font=("Segoe UI", 11, "bold")).pack(side="left", padx=(0, 8))
+            tk.Label(row, text=s, bg=BG_DARK, fg=FG_TEXT, font=("Segoe UI", 10), anchor="w").pack(side="left")
+
+        ttk.Label(
+            win,
+            text="Some content may be private or region-restricted by the site itself, which is outside the app's control.",
+            style="Muted.TLabel", wraplength=430, justify="left"
+        ).pack(anchor="w", padx=24, pady=(14, 0))
+
+        ttk.Button(win, text="Close", style="Secondary.TButton", command=win.destroy).pack(
+            anchor="e", padx=24, pady=20
+        )
 
     # ---------- UI construction ----------
 
@@ -244,10 +442,21 @@ class NWGrabioApp(tk.Tk):
         header = ttk.Frame(self, style="TFrame")
         header.pack(fill="x", padx=24, pady=(20, 10))
 
-        ttk.Label(header, text=APP_NAME, style="Title.TLabel").pack(side="left")
-        ttk.Label(header, text="  " + APP_TAGLINE, style="Tagline.TLabel").pack(
-            side="left", padx=(10, 0), pady=(8, 0)
-        )
+        logo_canvas = tk.Canvas(header, width=44, height=44, bg=BG_DARK, highlightthickness=0)
+        logo_canvas.pack(side="left", padx=(0, 12))
+        logo_canvas.create_oval(2, 2, 42, 42, outline=ACCENT, width=3)
+        logo_canvas.create_line(22, 12, 22, 28, fill=ACCENT, width=4)
+        logo_canvas.create_polygon(12, 22, 32, 22, 22, 34, fill=ACCENT)
+        logo_canvas.create_oval(30, 30, 40, 40, fill=ACCENT_2, outline="")
+
+        title_col = ttk.Frame(header, style="TFrame")
+        title_col.pack(side="left")
+        ttk.Label(title_col, text=APP_NAME, style="Title.TLabel").pack(anchor="w")
+        ttk.Label(title_col, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w")
+
+        ttk.Button(
+            header, text="How it works", style="Secondary.TButton", command=self._show_help
+        ).pack(side="right", pady=(6, 0))
 
         # URL input row
         url_frame = ttk.Frame(self, style="TFrame")
@@ -259,6 +468,7 @@ class NWGrabioApp(tk.Tk):
 
         self.url_entry = ttk.Entry(entry_row, textvariable=self.url_var, style="TEntry")
         self.url_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.url_entry.bind("<Return>", lambda e: self._fetch_info())
 
         ttk.Button(
             entry_row, text="Paste", style="Secondary.TButton", command=self._paste_url
@@ -267,13 +477,17 @@ class NWGrabioApp(tk.Tk):
             entry_row, text="Fetch Info", style="Accent.TButton", command=self._fetch_info
         ).pack(side="left", padx=(8, 0))
 
-        # Info panel
-        info_panel = ttk.Frame(self, style="Panel.TFrame")
+        # Info panel with thumbnail preview
+        info_panel = tk.Frame(self, bg=BG_PANEL, highlightbackground=BORDER, highlightthickness=1)
         info_panel.pack(fill="x", padx=24, pady=(14, 4))
-        inner = ttk.Frame(info_panel, style="Panel.TFrame")
+        inner = tk.Frame(info_panel, bg=BG_PANEL)
         inner.pack(fill="x", padx=14, pady=12)
-        ttk.Label(inner, textvariable=self.title_var, style="Panel.TLabel", wraplength=800).pack(
-            anchor="w"
+
+        self.thumb_label = tk.Label(inner, bg=BG_FIELD, width=20, height=5)
+        self.thumb_label.pack(side="left", padx=(0, 14))
+
+        ttk.Label(inner, textvariable=self.title_var, style="Panel.TLabel", wraplength=620, justify="left").pack(
+            side="left", fill="x", expand=True, anchor="w"
         )
 
         # Options row
@@ -360,9 +574,17 @@ class NWGrabioApp(tk.Tk):
         # Footer
         footer = ttk.Frame(self, style="TFrame")
         footer.pack(fill="x", padx=24, pady=(0, 16))
-        ttk.Label(footer, text=DEVELOPER_LINE_1, style="Muted.TLabel").pack(anchor="w")
-        ttk.Label(footer, text=DEVELOPER_LINE_2, style="Muted.TLabel").pack(anchor="w")
-        ttk.Label(footer, text=DEVELOPER_LINE_3, style="Muted.TLabel").pack(anchor="w")
+        footer_text = (
+            f"Developed by {DEVELOPER_NAME}  |  {DEVELOPER_PROGRAM}, {DEVELOPER_SCHOOL}"
+        )
+        footer_label = ttk.Label(footer, text=footer_text, style="Muted.TLabel", wraplength=850)
+        footer_label.pack(side="left", anchor="w")
+        about_link = tk.Label(
+            footer, text="About", bg=BG_DARK, fg=ACCENT, font=("Segoe UI", 9, "underline"),
+            cursor="hand2"
+        )
+        about_link.pack(side="right")
+        about_link.bind("<Button-1>", lambda e: self._show_about())
 
     # ---------- helpers ----------
 
@@ -397,11 +619,13 @@ class NWGrabioApp(tk.Tk):
             messagebox.showwarning(APP_NAME, "Please enter a video or page URL first.")
             return
         if yt_dlp is None:
-            messagebox.showerror(APP_NAME, "yt-dlp is not installed. See the installation guide.")
+            messagebox.showerror(APP_NAME, "The download engine is missing from this build. Please reinstall NWGrabio.")
             return
 
         self.status_var.set("Fetching info...")
         self.title_var.set("Fetching video information...")
+        self.thumbnail_photo = None
+        self.thumb_label.configure(image="", width=20, height=5)
         threading.Thread(target=self._fetch_info_worker, args=(url,), daemon=True).start()
 
     def _fetch_info_worker(self, url):
@@ -425,6 +649,19 @@ class NWGrabioApp(tk.Tk):
                 summary += f"  |  Duration: {duration_str}"
             self.msg_queue.put(("info_ready", summary))
             self.msg_queue.put(("status", "Ready to download"))
+
+            thumb_url = info.get("thumbnail")
+            if thumb_url and Image is not None and ImageTk is not None:
+                try:
+                    req = urllib.request.Request(thumb_url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        raw = resp.read()
+                    import io
+                    img = Image.open(io.BytesIO(raw)).convert("RGB")
+                    img.thumbnail((160, 90))
+                    self.msg_queue.put(("thumbnail_ready", img))
+                except Exception:
+                    pass
         except Exception as exc:
             self.msg_queue.put(("info_error", str(exc)))
 
@@ -436,7 +673,7 @@ class NWGrabioApp(tk.Tk):
             messagebox.showwarning(APP_NAME, "Please enter a video or page URL first.")
             return
         if yt_dlp is None:
-            messagebox.showerror(APP_NAME, "yt-dlp is not installed. See the installation guide.")
+            messagebox.showerror(APP_NAME, "The download engine is missing from this build. Please reinstall NWGrabio.")
             return
         if self.download_thread and self.download_thread.is_alive():
             messagebox.showinfo(APP_NAME, "A download is already in progress.")
@@ -529,6 +766,9 @@ class NWGrabioApp(tk.Tk):
                 if kind == "info_ready":
                     self.title_var.set(payload)
                     self._log("Video information loaded.")
+                elif kind == "thumbnail_ready":
+                    self.thumbnail_photo = ImageTk.PhotoImage(payload)
+                    self.thumb_label.configure(image=self.thumbnail_photo, width=160, height=90)
                 elif kind == "info_error":
                     self.title_var.set("Could not load video information.")
                     self.status_var.set("Ready")
