@@ -127,15 +127,18 @@ You can also skip the installer and just hand someone the whole `dist\NWGrabio\`
 ## How to use NWGrabio
 
 1. Copy a video link from YouTube, Facebook, TikTok, Instagram, or any other supported site.
-2. Paste it into the URL box, or click "Paste".
-3. Click "Fetch Info" to confirm the app found the correct video.
-4. Choose a quality from the dropdown:
+2. Paste it into the URL box, or click "Paste". NWGrabio fetches the title, thumbnail, and duration automatically, no extra click needed.
+3. Choose a quality from the dropdown:
    - Best Available (Auto, up to 8K): picks the single highest quality stream that exists for that video
    - 8K, 4K, 2K, Full HD, HD, SD, Low: caps the download at that resolution or below
    - Audio Only (MP3): extracts just the audio track
+4. If the link is part of a playlist and you want every video, check "Download the full playlist".
 5. Choose the folder to save into, or leave it on the default Downloads folder.
-6. Click "Download". Progress, speed, and estimated time remaining are shown live, along with an activity log.
+6. Click "Download". Progress, speed, and estimated time remaining are shown live, along with an activity log and a recent downloads list.
 7. Click "Cancel" at any time to stop an in-progress download.
+8. When it finishes, click "Open Folder" to jump straight to the downloaded file in Windows Explorer.
+
+A full walkthrough is also always available inside the app itself, under the "About & Help" tab.
 
 ---
 
@@ -196,7 +199,9 @@ Update yt-dlp using the steps above, since site support is updated frequently, t
 
 ## License and credit
 
-This project is built for personal and educational use, combining a custom dark themed interface with the open source yt-dlp project (https://github.com/yt-dlp/yt-dlp) and the ffmpeg project, both used under their own open source licenses.
+NWGrabio is released under the MIT License, see the `LICENSE` file included in this package and in the installed program folder. This means anyone is free to use, modify, and share it, provided the original copyright notice is kept.
+
+It combines a custom dark themed interface with the open source yt-dlp project (https://github.com/yt-dlp/yt-dlp) and ffmpeg, both used under their own open source licenses, credited in full inside `LICENSE`.
 
 Developed by Nethum Welikada
 Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada

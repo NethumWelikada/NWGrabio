@@ -10,7 +10,7 @@
 ; build.bat runs this automatically if Inno Setup is installed.
 
 #define MyAppName "NWGrabio"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "Nethum Welikada"
 #define MyAppURL "https://github.com/NethumWelikada"
 #define MyAppExeName "NWGrabio.exe"
@@ -25,6 +25,7 @@ AppSupportURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
+LicenseFile=LICENSE
 OutputDir=Output
 OutputBaseFilename=NWGrabio-Setup
 SetupIconFile=icon.ico
@@ -45,6 +46,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Files]
 Source: "dist\{#MyAppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
