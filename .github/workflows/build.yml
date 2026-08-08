@@ -23,13 +23,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build NWGrabio.exe with PyInstaller
+      - name: Build NWGrabio with PyInstaller
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
+          pyinstaller --noconfirm --onedir --windowed `
             --name NWGrabio `
             --icon icon.ico `
+            --version-file file_version_info.txt `
             --collect-all imageio_ffmpeg `
             main.py
+          if (-not (Test-Path "dist\NWGrabio\NWGrabio.exe")) {
+            Write-Error "PyInstaller did not produce dist\NWGrabio\NWGrabio.exe. See the log above this step for the real error."
+            exit 1
+          }
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
