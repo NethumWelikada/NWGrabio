@@ -1,0 +1,45 @@
+name: Build NWGrabio Windows Installer
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build NWGrabio.exe with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed `
+            --name NWGrabio `
+            --icon icon.ico `
+            --collect-all imageio_ffmpeg `
+            main.py
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build NWGrabio-Setup.exe installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Upload installer as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NWGrabio-Setup
+          path: Output/NWGrabio-Setup.exe
