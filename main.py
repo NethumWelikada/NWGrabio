@@ -59,17 +59,17 @@ def resource_path(relative_path):
 # Glass inspired dark palette. Panels use a lifted, faintly translucent tone
 # so that, combined with the real Windows Acrylic backdrop blur applied at
 # startup, the interface reads as frosted glass rather than flat dark boxes.
-BG_DARK = "#14161C"
-BG_GLASS = "#1E212B"
-BG_GLASS_LIGHT = "#262A36"
-BG_FIELD = "#2A2E3A"
+BG_DARK = "#0B0C10"
+BG_GLASS = "#14161D"
+BG_GLASS_LIGHT = "#1C1F29"
+BG_FIELD = "#1A1D26"
 FG_TEXT = "#F5F7FA"
-FG_MUTED = "#9AA3B5"
+FG_MUTED = "#8A93A6"
 ACCENT = "#3D8BFF"
 ACCENT_HOVER = "#5B9EFF"
 ACCENT_2 = "#FF7A1A"
-BORDER = "#333849"
-BORDER_LIGHT = "#454C63"
+BORDER = "#23262F"
+BORDER_LIGHT = "#333849"
 SUCCESS = "#34D399"
 ERROR = "#FF6161"
 
@@ -86,6 +86,7 @@ QUALITY_OPTIONS = {
 }
 
 SUPPORTED_SITE_BADGES = ["YouTube", "Facebook", "TikTok", "Instagram", "Twitter / X", "Vimeo", "+1000 more"]
+SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
 def get_default_download_folder():
@@ -134,8 +135,8 @@ class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} - {APP_TAGLINE}")
-        self.geometry("980x760")
-        self.minsize(820, 660)
+        self.geometry("860x680")
+        self.minsize(760, 600)
         self.configure(bg=BG_DARK)
 
         # Start invisible, fade in once the window is ready. Purely cosmetic,
@@ -149,6 +150,15 @@ class NWGrabioApp(tk.Tk):
             self.iconbitmap(resource_path("icon.ico"))
         except Exception:
             pass
+
+        self._app_icon_image = None
+        if Image is not None and ImageTk is not None:
+            try:
+                icon_img = Image.open(resource_path("icon.ico")).convert("RGBA")
+                icon_img = icon_img.resize((40, 40), Image.LANCZOS)
+                self._app_icon_image = ImageTk.PhotoImage(icon_img)
+            except Exception:
+                self._app_icon_image = None
 
         self._apply_glass_backdrop()
 
@@ -200,26 +210,28 @@ class NWGrabioApp(tk.Tk):
     # ---------- window chrome ----------
 
     def _apply_glass_backdrop(self):
-        """Apply real Windows Acrylic or Mica backdrop blur where available.
-        Safe no-op on Windows 7/8 or if pywinstyles is unavailable, so the
-        app still runs normally everywhere, just without the blur effect."""
+        """Apply the dark, translucent Windows title bar where supported.
+        Deliberately does not use full Acrylic/Mica blur: on many Windows
+        builds that composites a light system tint over the whole window,
+        washing out a custom dark palette. A slight window-level alpha
+        (set in _fade_in) gives the transparency effect instead, reliably,
+        while our own dark colors stay dark. Safe no-op everywhere else."""
         if pywinstyles is None or os.name != "nt":
             return
         try:
-            pywinstyles.apply_style(self, "acrylic")
+            pywinstyles.apply_style(self, "dark")
         except Exception:
-            try:
-                pywinstyles.apply_style(self, "dark")
-            except Exception:
-                pass
+            pass
+
+    WINDOW_ALPHA = 0.94
 
     def _fade_in(self):
         try:
             alpha = float(self.attributes("-alpha"))
         except Exception:
             return
-        if alpha < 1.0:
-            alpha = min(1.0, alpha + 0.09)
+        if alpha < self.WINDOW_ALPHA:
+            alpha = min(self.WINDOW_ALPHA, alpha + 0.08)
             try:
                 self.attributes("-alpha", alpha)
             except Exception:
@@ -341,12 +353,18 @@ class NWGrabioApp(tk.Tk):
         header = ttk.Frame(root, style="TFrame")
         header.pack(fill="x", padx=24, pady=(20, 8))
 
-        logo_canvas = tk.Canvas(header, width=44, height=44, bg=BG_DARK, highlightthickness=0)
-        logo_canvas.pack(side="left", padx=(0, 12))
-        logo_canvas.create_oval(2, 2, 42, 42, outline=ACCENT, width=3)
-        logo_canvas.create_line(22, 12, 22, 28, fill=ACCENT, width=4)
-        logo_canvas.create_polygon(12, 22, 32, 22, 22, 34, fill=ACCENT)
-        logo_canvas.create_oval(30, 30, 40, 40, fill=ACCENT_2, outline="")
+        logo_holder = tk.Frame(header, bg=BG_DARK, width=40, height=40)
+        logo_holder.pack(side="left", padx=(0, 12))
+        logo_holder.pack_propagate(False)
+        if self._app_icon_image is not None:
+            tk.Label(logo_holder, image=self._app_icon_image, bg=BG_DARK).pack(fill="both", expand=True)
+        else:
+            logo_canvas = tk.Canvas(logo_holder, width=40, height=40, bg=BG_DARK, highlightthickness=0)
+            logo_canvas.pack(fill="both", expand=True)
+            logo_canvas.create_oval(2, 2, 38, 38, outline=ACCENT, width=3)
+            logo_canvas.create_line(20, 11, 20, 25, fill=ACCENT, width=4)
+            logo_canvas.create_polygon(11, 20, 29, 20, 20, 31, fill=ACCENT)
+            logo_canvas.create_oval(27, 27, 36, 36, fill=ACCENT_2, outline="")
 
         title_col = ttk.Frame(header, style="TFrame")
         title_col.pack(side="left")
@@ -387,9 +405,9 @@ class NWGrabioApp(tk.Tk):
         hint.pack(anchor="w", pady=(4, 0))
 
         # Info panel with thumbnail preview, glass styled
-        info_panel = tk.Frame(root, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
-        info_panel.pack(fill="x", padx=24, pady=(14, 4))
-        inner = tk.Frame(info_panel, bg=BG_GLASS)
+        self.info_panel = tk.Frame(root, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
+        self.info_panel.pack(fill="x", padx=24, pady=(14, 4))
+        inner = tk.Frame(self.info_panel, bg=BG_GLASS)
         inner.pack(fill="x", padx=14, pady=12)
 
         self.thumb_label = tk.Label(inner, bg=BG_FIELD, width=20, height=5)
@@ -497,8 +515,14 @@ class NWGrabioApp(tk.Tk):
 
         pad = 28
 
-        ttk.Label(scroll_frame, text=APP_NAME, style="Title.TLabel").pack(anchor="w", padx=pad, pady=(24, 0))
-        ttk.Label(scroll_frame, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w", padx=pad, pady=(2, 20))
+        top_row = tk.Frame(scroll_frame, bg=BG_DARK)
+        top_row.pack(fill="x", padx=pad, pady=(24, 0))
+        if self._app_icon_image is not None:
+            tk.Label(top_row, image=self._app_icon_image, bg=BG_DARK).pack(side="left", padx=(0, 12))
+        title_col = tk.Frame(top_row, bg=BG_DARK)
+        title_col.pack(side="left")
+        ttk.Label(title_col, text=APP_NAME, style="Title.TLabel").pack(anchor="w")
+        ttk.Label(title_col, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w", pady=(0, 20))
 
         # Developer card
         dev_card = tk.Frame(scroll_frame, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
@@ -662,6 +686,7 @@ class NWGrabioApp(tk.Tk):
         self._fetching_dots = 0
         self._fetching_anim_active = True
         self._animate_fetching_dots()
+        self._start_spinner("Fetching info")
 
     def _animate_fetching_dots(self):
         if not getattr(self, "_fetching_anim_active", False):
@@ -679,6 +704,34 @@ class NWGrabioApp(tk.Tk):
                 pass
             self._fetching_dots_job = None
 
+    # ---------- generic loading spinner (status bar) ----------
+
+    def _start_spinner(self, base_text):
+        self._spinner_index = 0
+        self._spinner_active = True
+        self._spinner_base = base_text
+        self._animate_spinner()
+
+    def _animate_spinner(self):
+        if not getattr(self, "_spinner_active", False):
+            return
+        frame = SPINNER_FRAMES[self._spinner_index % len(SPINNER_FRAMES)]
+        self._spinner_index += 1
+        self.status_var.set(f"{frame}  {self._spinner_base}")
+        self._spinner_job = self.after(90, self._animate_spinner)
+
+    def _stop_spinner(self, final_text=None):
+        self._spinner_active = False
+        job = getattr(self, "_spinner_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+            self._spinner_job = None
+        if final_text is not None:
+            self.status_var.set(final_text)
+
     # ---------- fetch info ----------
 
     def _fetch_info(self):
@@ -686,7 +739,6 @@ class NWGrabioApp(tk.Tk):
         if not url or yt_dlp is None:
             return
 
-        self.status_var.set("Fetching info...")
         self._start_fetching_animation()
         self.thumbnail_photo = None
         self.thumb_label.configure(image="", width=20, height=5)
@@ -756,7 +808,7 @@ class NWGrabioApp(tk.Tk):
         self.open_folder_btn.state(["disabled"])
         self.progress_bar.configure(mode="determinate")
         self.progress_value.set(0)
-        self.status_var.set("Starting download...")
+        self._start_spinner("Starting download")
         self._log(f"Starting download: {url}")
 
         self.download_thread = threading.Thread(target=self._download_worker, args=(url, out_dir), daemon=True)
@@ -825,7 +877,7 @@ class NWGrabioApp(tk.Tk):
     def _cancel_download(self):
         if self.download_thread and self.download_thread.is_alive():
             self.cancel_flag.set()
-            self.status_var.set("Cancelling...")
+            self._start_spinner("Cancelling")
             self._log("Cancelling download...", ACCENT_2)
 
     # ---------- queue polling ----------
@@ -836,31 +888,34 @@ class NWGrabioApp(tk.Tk):
                 kind, payload = self.msg_queue.get_nowait()
                 if kind == "info_ready":
                     self._stop_fetching_animation()
+                    self._stop_spinner()
                     self.title_var.set(payload)
                     self._log("Video information loaded.")
+                    self._pulse_panel_border()
                 elif kind == "thumbnail_ready":
                     self.thumbnail_photo = ImageTk.PhotoImage(payload)
                     self.thumb_label.configure(image=self.thumbnail_photo, width=160, height=90)
                 elif kind == "info_error":
                     self._stop_fetching_animation()
+                    self._stop_spinner(final_text="Ready")
                     self.title_var.set("Could not load video information. Check the link and try again.")
-                    self.status_var.set("Ready")
                     self._log(f"Fetch info failed: {payload}", ERROR)
                 elif kind == "progress":
                     self.progress_value.set(payload)
                 elif kind == "status":
+                    self._stop_spinner()
                     self.status_var.set(payload)
                 elif kind == "merging_start":
                     self.progress_bar.configure(mode="indeterminate")
                     self.progress_bar.start(12)
-                    self.status_var.set("Processing / merging streams...")
+                    self._start_spinner("Processing / merging streams")
                 elif kind == "last_file":
                     self.last_downloaded_path = payload
                 elif kind == "done_ok":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")
                     self.progress_value.set(100)
-                    self.status_var.set("Download complete")
+                    self._stop_spinner(final_text="Download complete")
                     self._log(f"Download finished. Saved to: {payload}", SUCCESS)
                     self._reset_buttons()
                     self.open_folder_btn.state(["!disabled"])
@@ -872,13 +927,13 @@ class NWGrabioApp(tk.Tk):
                 elif kind == "done_cancelled":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")
-                    self.status_var.set("Cancelled")
+                    self._stop_spinner(final_text="Cancelled")
                     self._log("Download cancelled by user.", ACCENT_2)
                     self._reset_buttons()
                 elif kind == "done_error":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")
-                    self.status_var.set("Download failed")
+                    self._stop_spinner(final_text="Download failed")
                     self._log(f"Download failed: {payload}", ERROR)
                     self._reset_buttons()
                     self._show_toast("Download failed. See the activity log for details.", bg=ERROR, fg="#FFFFFF")
@@ -889,6 +944,14 @@ class NWGrabioApp(tk.Tk):
     def _reset_buttons(self):
         self.download_btn.state(["!disabled"])
         self.cancel_btn.state(["disabled"])
+
+    def _pulse_panel_border(self, step=0):
+        pulse_sequence = [ACCENT, ACCENT, BORDER_LIGHT, BORDER_LIGHT, BORDER]
+        if step >= len(pulse_sequence):
+            self.info_panel.configure(highlightbackground=BORDER_LIGHT)
+            return
+        self.info_panel.configure(highlightbackground=pulse_sequence[step])
+        self.after(160, lambda: self._pulse_panel_border(step + 1))
 
 
 def main():
