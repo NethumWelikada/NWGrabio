@@ -244,8 +244,8 @@ class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} - {APP_TAGLINE}")
-        self.geometry("860x680")
-        self.minsize(760, 600)
+        self.geometry("900x820")
+        self.minsize(860, 800)
         self.configure(bg=BG_DARK)
 
         # Start invisible, fade in once the window is ready. Purely cosmetic,
@@ -362,7 +362,7 @@ class NWGrabioApp(tk.Tk):
         menubar.add_cascade(label="File", menu=file_menu)
 
         help_menu = tk.Menu(menubar, tearoff=0, bg=BG_GLASS, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
-        help_menu.add_command(label="About & Help tab", command=lambda: self.notebook.select(self.about_tab))
+        help_menu.add_command(label="About NWGrabio", command=self._show_about)
         help_menu.add_command(label="Visit GitHub", command=lambda: webbrowser.open(DEVELOPER_GITHUB_URL))
         menubar.add_cascade(label="Help", menu=help_menu)
 
@@ -418,28 +418,11 @@ class NWGrabioApp(tk.Tk):
         style.configure("TCheckbutton", background=BG_DARK, foreground=FG_TEXT, font=("Segoe UI", 9))
         style.map("TCheckbutton", background=[("active", BG_DARK)])
 
-        style.configure("TNotebook", background=BG_DARK, borderwidth=0)
-        style.configure("TNotebook.Tab", background=BG_GLASS, foreground=FG_MUTED, padding=(18, 10),
-                         font=("Segoe UI", 10, "bold"), borderwidth=0)
-        style.map("TNotebook.Tab",
-                  background=[("selected", BG_DARK)],
-                  foreground=[("selected", FG_TEXT)])
-
     # ---------- layout ----------
 
     def _build_layout(self):
         self._wrap_labels = []
-
-        self.notebook = ttk.Notebook(self, style="TNotebook")
-        self.notebook.pack(fill="both", expand=True)
-
-        self.download_tab = ttk.Frame(self.notebook, style="TFrame")
-        self.about_tab = ttk.Frame(self.notebook, style="TFrame")
-        self.notebook.add(self.download_tab, text="  Download  ")
-        self.notebook.add(self.about_tab, text="  About & Help  ")
-
-        self._build_download_tab(self.download_tab)
-        self._build_about_tab(self.about_tab)
+        self._build_download_tab(self)
 
     def _section_label(self, parent, text):
         row = tk.Frame(parent, bg=BG_MAIN)
@@ -449,38 +432,20 @@ class NWGrabioApp(tk.Tk):
 
     def _card(self, parent, **pack_opts):
         card = tk.Frame(parent, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
-        defaults = dict(fill="x", pady=(0, 16))
+        defaults = dict(fill="x", pady=(0, 12))
         defaults.update(pack_opts)
         card.pack(**defaults)
         inner = tk.Frame(card, bg=BG_CARD)
-        inner.pack(fill="both", expand=True, padx=18, pady=16)
+        inner.pack(fill="both", expand=True, padx=16, pady=12)
         return inner
 
     def _build_download_tab(self, root):
-        # A scrollable canvas wraps everything so nothing is ever clipped
-        # by the window height, regardless of how much content is showing.
-        canvas = tk.Canvas(root, bg=BG_MAIN, highlightthickness=0)
-        vscroll = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
-        content = tk.Frame(canvas, bg=BG_MAIN)
-
-        content_window = canvas.create_window((0, 0), window=content, anchor="nw")
-        content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>", lambda e: canvas.itemconfig(content_window, width=e.width))
-        canvas.configure(yscrollcommand=vscroll.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        vscroll.pack(side="right", fill="y")
-
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
-        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
-
-        pad = 24
+        content = root
+        pad = 22
 
         # Header
         header = tk.Frame(content, bg=BG_MAIN)
-        header.pack(fill="x", padx=pad, pady=(22, 6))
+        header.pack(fill="x", padx=pad, pady=(18, 4))
 
         logo_holder = tk.Frame(header, bg=BG_MAIN, width=40, height=40)
         logo_holder.pack(side="left", padx=(0, 12))
@@ -500,7 +465,7 @@ class NWGrabioApp(tk.Tk):
         tk.Label(title_col, text=APP_TAGLINE, bg=BG_MAIN, fg=ACCENT, font=("Segoe UI", 10, "bold")).pack(anchor="w")
 
         badges = tk.Frame(content, bg=BG_MAIN)
-        badges.pack(fill="x", padx=pad, pady=(2, 18))
+        badges.pack(fill="x", padx=pad, pady=(2, 12))
         for name in SUPPORTED_SITE_BADGES:
             tk.Label(badges, text=name, bg=BG_CARD_TINT, fg=ACCENT, font=("Segoe UI", 8, "bold"),
                      padx=9, pady=3).pack(side="left", padx=(0, 6))
@@ -522,14 +487,14 @@ class NWGrabioApp(tk.Tk):
         )
 
         tk.Label(link_card, text="Paste a link and NWGrabio fetches it automatically, no extra clicks needed.",
-                 bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9)).pack(anchor="w", pady=(6, 12))
+                 bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9)).pack(anchor="w", pady=(4, 8))
 
         preview_row = tk.Frame(link_card, bg=BG_CARD_TINT, highlightbackground=BORDER, highlightthickness=1)
         preview_row.pack(fill="x")
         preview_inner = tk.Frame(preview_row, bg=BG_CARD_TINT)
-        preview_inner.pack(fill="x", padx=12, pady=10)
+        preview_inner.pack(fill="x", padx=10, pady=8)
 
-        self.thumb_label = tk.Label(preview_inner, bg=BG_FIELD, width=14, height=4)
+        self.thumb_label = tk.Label(preview_inner, bg=BG_FIELD, width=13, height=3)
         self.thumb_label.pack(side="left", padx=(0, 12))
 
         title_label = tk.Label(preview_inner, textvariable=self.title_var, bg=BG_CARD_TINT, fg=FG_TEXT,
@@ -592,24 +557,25 @@ class NWGrabioApp(tk.Tk):
         self.progress_bar = ttk.Progressbar(
             action_card, style="Dark.Horizontal.TProgressbar", variable=self.progress_value, maximum=100
         )
-        self.progress_bar.pack(fill="x", ipady=4, pady=(14, 6))
+        self.progress_bar.pack(fill="x", ipady=4, pady=(10, 4))
 
         status_label = tk.Label(action_card, textvariable=self.status_var, bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9))
         status_label.pack(anchor="w")
 
-        # Activity log and recent downloads, side by side, fixed sensible height
+        # Activity log and recent downloads, side by side, sized to fit
+        # within the window without needing an internal scrollbar.
         body_row = tk.Frame(content, bg=BG_MAIN)
-        body_row.pack(fill="x", padx=pad, pady=(0, 24))
+        body_row.pack(fill="x", padx=pad, pady=(0, 16))
 
         log_col = tk.Frame(body_row, bg=BG_MAIN)
         log_col.pack(side="left", fill="both", expand=True)
         self._section_label(log_col, "Activity log")
-        log_container = tk.Frame(log_col, bg=BG_FIELD, highlightbackground=BORDER, highlightthickness=1, height=180)
+        log_container = tk.Frame(log_col, bg=BG_FIELD, highlightbackground=BORDER, highlightthickness=1, height=130)
         log_container.pack(fill="x")
         log_container.pack_propagate(False)
         self.log_text = tk.Text(
             log_container, bg=BG_FIELD, fg=FG_TEXT, insertbackground=FG_TEXT, relief="flat",
-            wrap="word", font=("Consolas", 9), padx=10, pady=8
+            wrap="word", font=("Consolas", 9), padx=10, pady=6
         )
         self.log_text.pack(side="left", fill="both", expand=True)
         log_scroll = ttk.Scrollbar(log_container, command=self.log_text.yview)
@@ -620,97 +586,68 @@ class NWGrabioApp(tk.Tk):
         recent_col.pack(side="left", fill="both", padx=(16, 0))
         self._section_label(recent_col, "Recent downloads")
         self.recent_container = tk.Frame(recent_col, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1,
-                                          width=260, height=180)
+                                          width=250, height=130)
         self.recent_container.pack(fill="both")
         self.recent_container.pack_propagate(False)
         self._refresh_recent_list()
 
-    def _build_about_tab(self, root):
-        canvas_scroll = tk.Canvas(root, bg=BG_DARK, highlightthickness=0)
-        vscroll = ttk.Scrollbar(root, orient="vertical", command=canvas_scroll.yview)
-        scroll_frame = ttk.Frame(canvas_scroll, style="TFrame")
+    def _show_about(self):
+        win = tk.Toplevel(self)
+        win.title(f"About {APP_NAME}")
+        win.configure(bg=BG_MAIN)
+        win.geometry("480x460")
+        win.resizable(False, False)
+        win.transient(self)
+        try:
+            win.iconbitmap(resource_path("icon.ico"))
+        except Exception:
+            pass
 
-        scroll_frame.bind("<Configure>", lambda e: canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all")))
-        canvas_scroll.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas_scroll.configure(yscrollcommand=vscroll.set)
-        canvas_scroll.pack(side="left", fill="both", expand=True)
-        vscroll.pack(side="right", fill="y")
-
-        pad = 28
-
-        top_row = tk.Frame(scroll_frame, bg=BG_DARK)
-        top_row.pack(fill="x", padx=pad, pady=(24, 0))
+        top_row = tk.Frame(win, bg=BG_MAIN)
+        top_row.pack(fill="x", padx=24, pady=(22, 0))
         if self._app_icon_image is not None:
-            tk.Label(top_row, image=self._app_icon_image, bg=BG_DARK).pack(side="left", padx=(0, 12))
-        title_col = tk.Frame(top_row, bg=BG_DARK)
+            tk.Label(top_row, image=self._app_icon_image, bg=BG_MAIN).pack(side="left", padx=(0, 12))
+        title_col = tk.Frame(top_row, bg=BG_MAIN)
         title_col.pack(side="left")
-        ttk.Label(title_col, text=APP_NAME, style="Title.TLabel").pack(anchor="w")
-        ttk.Label(title_col, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w", pady=(0, 20))
+        tk.Label(title_col, text=APP_NAME, bg=BG_MAIN, fg=FG_TEXT, font=("Segoe UI", 18, "bold")).pack(anchor="w")
+        tk.Label(title_col, text=APP_TAGLINE, bg=BG_MAIN, fg=ACCENT, font=("Segoe UI", 10, "bold")).pack(anchor="w")
 
-        # Developer card
-        dev_card = tk.Frame(scroll_frame, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
-        dev_card.pack(fill="x", padx=pad, pady=(0, 20))
-        dev_inner = tk.Frame(dev_card, bg=BG_GLASS)
-        dev_inner.pack(fill="x", padx=18, pady=16)
+        dev_card = tk.Frame(win, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+        dev_card.pack(fill="x", padx=24, pady=18)
+        dev_inner = tk.Frame(dev_card, bg=BG_CARD)
+        dev_inner.pack(fill="x", padx=16, pady=14)
 
         def dev_row(label, value):
-            r = tk.Frame(dev_inner, bg=BG_GLASS)
+            r = tk.Frame(dev_inner, bg=BG_CARD)
             r.pack(fill="x", pady=3)
-            tk.Label(r, text=label, bg=BG_GLASS, fg=FG_MUTED, font=("Segoe UI", 9), width=12, anchor="w").pack(side="left")
-            tk.Label(r, text=value, bg=BG_GLASS, fg=FG_TEXT, font=("Segoe UI", 10), anchor="w").pack(side="left")
+            tk.Label(r, text=label, bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9), width=12, anchor="w").pack(side="left")
+            tk.Label(r, text=value, bg=BG_CARD, fg=FG_TEXT, font=("Segoe UI", 10), anchor="w").pack(side="left")
 
         dev_row("Version", APP_VERSION)
         dev_row("Developer", DEVELOPER_NAME)
         dev_row("Program", DEVELOPER_PROGRAM)
         dev_row("University", DEVELOPER_SCHOOL)
 
-        link = tk.Label(dev_inner, text=DEVELOPER_GITHUB_LABEL, bg=BG_GLASS, fg=ACCENT,
+        link = tk.Label(dev_inner, text=DEVELOPER_GITHUB_LABEL, bg=BG_CARD, fg=ACCENT,
                          font=("Segoe UI", 10, "underline"), cursor="hand2", anchor="w")
-        link.pack(anchor="w", pady=(6, 0))
+        link.pack(anchor="w", pady=(8, 0))
         link.bind("<Button-1>", lambda e: webbrowser.open(DEVELOPER_GITHUB_URL))
 
         tk.Label(
-            dev_inner, text="Licensed under the MIT License. Built with yt-dlp and ffmpeg, open source "
-                            "projects used under their own licenses.",
-            bg=BG_GLASS, fg=FG_MUTED, font=("Segoe UI", 9), wraplength=560, justify="left", anchor="w"
-        ).pack(anchor="w", pady=(10, 0))
+            win, text="Licensed under the MIT License. Built with yt-dlp and ffmpeg, open source "
+                      "projects used under their own licenses.",
+            bg=BG_MAIN, fg=FG_MUTED, font=("Segoe UI", 9), wraplength=430, justify="left"
+        ).pack(anchor="w", padx=24)
 
-        # How it works
-        ttk.Label(scroll_frame, text="How it works", style="Title.TLabel").pack(anchor="w", padx=pad, pady=(4, 4))
-        steps = [
-            ("1. Copy a link", "Open YouTube, Facebook, TikTok, Instagram, or almost any other site and copy the video's link."),
-            ("2. Paste it in NWGrabio", "Click the URL box and press Ctrl+V, or use the Paste button. Details load automatically."),
-            ("3. Pick a quality", "Choose a quality from the dropdown. Best Available automatically picks the highest resolution offered, up to 8K."),
-            ("4. Click Download", "Watch the progress bar. When it says Download complete, click Open Folder to jump straight to the file."),
-        ]
-        for heading, text in steps:
-            card = tk.Frame(scroll_frame, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
-            card.pack(fill="x", padx=pad, pady=6)
-            tk.Label(card, text=heading, bg=BG_GLASS, fg=ACCENT, font=("Segoe UI", 10, "bold"), anchor="w").pack(
-                fill="x", padx=14, pady=(10, 2)
-            )
-            step_label = tk.Label(card, text=text, bg=BG_GLASS, fg=FG_TEXT, font=("Segoe UI", 9), anchor="w",
-                                   justify="left", wraplength=560)
-            step_label.pack(fill="x", padx=14, pady=(0, 10))
-            self._wrap_labels.append(step_label)
+        tk.Label(
+            win, text="Works with YouTube, Facebook, TikTok, Instagram, Twitter/X, Vimeo, Reddit, "
+                      "and over 1000 other sites through the yt-dlp engine.",
+            bg=BG_MAIN, fg=FG_MUTED, font=("Segoe UI", 9), wraplength=430, justify="left"
+        ).pack(anchor="w", padx=24, pady=(10, 0))
 
-        # Supported sites
-        ttk.Label(scroll_frame, text="Supported sites", style="Title.TLabel").pack(anchor="w", padx=pad, pady=(16, 4))
-        ttk.Label(
-            scroll_frame, text="NWGrabio works with over a thousand sites through the yt-dlp engine, including:",
-            style="Muted.TLabel", wraplength=560, justify="left"
-        ).pack(anchor="w", padx=pad, pady=(0, 10))
-
-        sites_frame = tk.Frame(scroll_frame, bg=BG_DARK)
-        sites_frame.pack(fill="x", padx=pad, pady=(0, 24))
-        sites = ["YouTube (videos, Shorts, playlists)", "Facebook (public videos and reels)", "TikTok",
-                 "Instagram (public posts and reels)", "Twitter / X", "Vimeo", "Reddit", "Dailymotion",
-                 "Twitch clips", "Most news, blog, and media sites"]
-        for s in sites:
-            row = tk.Frame(sites_frame, bg=BG_DARK)
-            row.pack(fill="x", pady=2)
-            tk.Label(row, text="•", bg=BG_DARK, fg=ACCENT, font=("Segoe UI", 11, "bold")).pack(side="left", padx=(0, 8))
-            tk.Label(row, text=s, bg=BG_DARK, fg=FG_TEXT, font=("Segoe UI", 10), anchor="w").pack(side="left")
+        ttk.Button(win, text="Close", style="Secondary.TButton", command=win.destroy).pack(
+            anchor="e", padx=24, pady=20
+        )
 
     # ---------- recent downloads ----------
 
