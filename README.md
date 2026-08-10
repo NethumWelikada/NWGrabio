@@ -1,6 +1,6 @@
 # NWGrabio
 
-Universal Video Downloader for Windows. Download from YouTube, Facebook, TikTok, Instagram, Twitter/X, Vimeo, Reddit and hundreds of other sites, up to the highest resolution available including 4K and 8K, in a dark themed desktop app.
+Universal Video Downloader for Windows. Download from YouTube, Facebook, TikTok, Instagram, Twitter/X, Vimeo, Reddit and hundreds of other sites, up to the highest resolution available including 4K and 8K, with a clean, brand colored interface.
 
 Developed by Nethum Welikada
 Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada
@@ -201,7 +201,7 @@ Update yt-dlp using the steps above, since site support is updated frequently, t
 
 NWGrabio is released under the MIT License, see the `LICENSE` file included in this package and in the installed program folder. This means anyone is free to use, modify, and share it, provided the original copyright notice is kept.
 
-It combines a custom dark themed interface with the open source yt-dlp project (https://github.com/yt-dlp/yt-dlp) and ffmpeg, both used under their own open source licenses, credited in full inside `LICENSE`.
+It combines a custom brand colored interface with the open source yt-dlp project (https://github.com/yt-dlp/yt-dlp) and ffmpeg, both used under their own open source licenses, credited in full inside `LICENSE`.
 
 Developed by Nethum Welikada
 Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada

@@ -34,14 +34,9 @@ except ImportError:
     Image = None
     ImageTk = None
 
-try:
-    import pywinstyles
-except ImportError:
-    pywinstyles = None
-
 APP_NAME = "NWGrabio"
 APP_TAGLINE = "Grab Anything, From Anywhere."
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 DEVELOPER_NAME = "Nethum Welikada"
 DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
 DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"
@@ -56,22 +51,31 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-# Glass inspired dark palette. Panels use a lifted, faintly translucent tone
-# so that, combined with the real Windows Acrylic backdrop blur applied at
-# startup, the interface reads as frosted glass rather than flat dark boxes.
-BG_DARK = "#0B0C10"
-BG_GLASS = "#14161D"
-BG_GLASS_LIGHT = "#1C1F29"
-BG_FIELD = "#1A1D26"
-FG_TEXT = "#F5F7FA"
-FG_MUTED = "#8A93A6"
-ACCENT = "#3D8BFF"
-ACCENT_HOVER = "#5B9EFF"
-ACCENT_2 = "#FF7A1A"
-BORDER = "#23262F"
-BORDER_LIGHT = "#333849"
-SUCCESS = "#34D399"
-ERROR = "#FF6161"
+# Brand palette. Only three colors are the brand's own: ACCENT, TEXT, and
+# BACKGROUND. Panel and border tones below are neutral shades built from
+# that same background so the interface stays cohesive without introducing
+# new brand colors. SUCCESS and ERROR are kept as the minimum functional
+# colors needed for clear pass/fail feedback, which is standard even in
+# strictly branded interfaces.
+BG_MAIN = "#F7F8F9"
+BG_CARD = "#FFFFFF"
+BG_CARD_TINT = "#EAF1FF"
+BG_FIELD = "#FFFFFF"
+FG_TEXT = "#1A1A1A"
+FG_MUTED = "#6B7280"
+ACCENT = "#0066FF"
+ACCENT_HOVER = "#0052CC"
+BORDER = "#E4E7EC"
+BORDER_LIGHT = "#D0D5DD"
+SUCCESS = "#16A34A"
+ERROR = "#DC2626"
+
+# Kept as aliases so the rest of the file, which was written against a dark
+# theme, needs no further renaming.
+BG_DARK = BG_MAIN
+BG_GLASS = BG_CARD
+BG_GLASS_LIGHT = BG_CARD_TINT
+ACCENT_2 = ACCENT_HOVER
 
 QUALITY_OPTIONS = {
     "Best Available (Auto, up to 8K)": "bestvideo+bestaudio/best",
@@ -131,6 +135,111 @@ def looks_like_url(text):
     return text.startswith("http://") or text.startswith("https://")
 
 
+class Select2Combo(tk.Frame):
+    """A searchable dropdown selector styled like the Select2 pattern common
+    in modern web apps: a clickable field showing the current value, and a
+    popup with a live-filter search box above the option list."""
+
+    def __init__(self, parent, values, textvariable, on_change=None):
+        super().__init__(parent, bg=BG_MAIN)
+        self.values = list(values)
+        self.var = textvariable
+        self.on_change = on_change
+        self.popup = None
+
+        self.field = tk.Frame(self, bg=BG_FIELD, highlightbackground=BORDER_LIGHT,
+                               highlightthickness=1, cursor="hand2")
+        self.field.pack(fill="x")
+
+        self.value_label = tk.Label(self.field, textvariable=self.var, bg=BG_FIELD, fg=FG_TEXT,
+                                     font=("Segoe UI", 10), anchor="w", cursor="hand2")
+        self.value_label.pack(side="left", fill="x", expand=True, padx=12, pady=9)
+
+        self.arrow_label = tk.Label(self.field, text="\u25BE", bg=BG_FIELD, fg=FG_MUTED,
+                                     font=("Segoe UI", 10), cursor="hand2")
+        self.arrow_label.pack(side="right", padx=12)
+
+        for widget in (self.field, self.value_label, self.arrow_label):
+            widget.bind("<Button-1>", self._toggle)
+
+    def _toggle(self, event=None):
+        if self.popup is not None:
+            self._close()
+        else:
+            self._open()
+
+    def _open(self):
+        self.field.configure(highlightbackground=ACCENT)
+        self.popup = tk.Toplevel(self)
+        self.popup.overrideredirect(True)
+        self.popup.configure(bg=BORDER_LIGHT)
+
+        x = self.field.winfo_rootx()
+        y = self.field.winfo_rooty() + self.field.winfo_height() + 2
+        width = self.field.winfo_width()
+        height = min(260, 34 * len(self.values) + 46)
+        self.popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.search_var = tk.StringVar()
+        search_entry = tk.Entry(self.popup, textvariable=self.search_var, bg=BG_FIELD, fg=FG_TEXT,
+                                 relief="flat", font=("Segoe UI", 10), insertbackground=FG_TEXT)
+        search_entry.pack(fill="x", padx=1, pady=(1, 0), ipady=6, ipadx=8)
+        search_entry.focus_set()
+        search_entry.bind("<KeyRelease>", self._filter)
+        search_entry.bind("<Escape>", lambda e: self._close())
+
+        self.list_frame = tk.Frame(self.popup, bg=BG_FIELD)
+        self.list_frame.pack(fill="both", expand=True, padx=1, pady=(0, 1))
+
+        self._render_options(self.values)
+        self.popup.bind("<FocusOut>", lambda e: self.after(120, self._close_if_unfocused))
+
+    def _close_if_unfocused(self):
+        if self.popup is None:
+            return
+        try:
+            focused = self.popup.focus_get()
+        except Exception:
+            focused = None
+        if focused is None:
+            self._close()
+
+    def _render_options(self, values):
+        for child in self.list_frame.winfo_children():
+            child.destroy()
+        if not values:
+            tk.Label(self.list_frame, text="No matches", bg=BG_FIELD, fg=FG_MUTED,
+                     font=("Segoe UI", 9), anchor="w", padx=12, pady=8).pack(fill="x")
+            return
+        for value in values:
+            row = tk.Label(self.list_frame, text=value, bg=BG_FIELD, fg=FG_TEXT, anchor="w",
+                            font=("Segoe UI", 10), padx=12, pady=7, cursor="hand2")
+            row.pack(fill="x")
+            row.bind("<Enter>", lambda e, r=row: r.configure(bg=BG_CARD_TINT, fg=ACCENT))
+            row.bind("<Leave>", lambda e, r=row: r.configure(bg=BG_FIELD, fg=FG_TEXT))
+            row.bind("<Button-1>", lambda e, v=value: self._select(v))
+
+    def _filter(self, event=None):
+        query = self.search_var.get().strip().lower()
+        filtered = [v for v in self.values if query in v.lower()] if query else self.values
+        self._render_options(filtered)
+
+    def _select(self, value):
+        self.var.set(value)
+        self._close()
+        if self.on_change:
+            self.on_change(value)
+
+    def _close(self):
+        self.field.configure(highlightbackground=BORDER_LIGHT)
+        if self.popup is not None:
+            try:
+                self.popup.destroy()
+            except Exception:
+                pass
+            self.popup = None
+
+
 class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -159,8 +268,6 @@ class NWGrabioApp(tk.Tk):
                 self._app_icon_image = ImageTk.PhotoImage(icon_img)
             except Exception:
                 self._app_icon_image = None
-
-        self._apply_glass_backdrop()
 
         self.output_dir = tk.StringVar(value=get_default_download_folder())
         self.url_var = tk.StringVar()
@@ -209,21 +316,7 @@ class NWGrabioApp(tk.Tk):
 
     # ---------- window chrome ----------
 
-    def _apply_glass_backdrop(self):
-        """Apply the dark, translucent Windows title bar where supported.
-        Deliberately does not use full Acrylic/Mica blur: on many Windows
-        builds that composites a light system tint over the whole window,
-        washing out a custom dark palette. A slight window-level alpha
-        (set in _fade_in) gives the transparency effect instead, reliably,
-        while our own dark colors stay dark. Safe no-op everywhere else."""
-        if pywinstyles is None or os.name != "nt":
-            return
-        try:
-            pywinstyles.apply_style(self, "dark")
-        except Exception:
-            pass
-
-    WINDOW_ALPHA = 0.94
+    WINDOW_ALPHA = 1.0
 
     def _fade_in(self):
         try:
@@ -231,12 +324,12 @@ class NWGrabioApp(tk.Tk):
         except Exception:
             return
         if alpha < self.WINDOW_ALPHA:
-            alpha = min(self.WINDOW_ALPHA, alpha + 0.08)
+            alpha = min(self.WINDOW_ALPHA, alpha + 0.1)
             try:
                 self.attributes("-alpha", alpha)
             except Exception:
                 return
-            self.after(15, self._fade_in)
+            self.after(12, self._fade_in)
 
     def _on_resize(self, event):
         if event.widget is not self:
@@ -315,7 +408,7 @@ class NWGrabioApp(tk.Tk):
                          padding=8, borderwidth=0)
         style.map("Danger.TButton", background=[("disabled", BORDER)])
 
-        style.configure("Success.TButton", background=SUCCESS, foreground="#0B1310", font=("Segoe UI", 10, "bold"),
+        style.configure("Success.TButton", background=SUCCESS, foreground="#FFFFFF", font=("Segoe UI", 10, "bold"),
                          padding=8, borderwidth=0)
         style.map("Success.TButton", background=[("disabled", BORDER)])
 
@@ -424,11 +517,10 @@ class NWGrabioApp(tk.Tk):
         quality_col = ttk.Frame(options_row, style="TFrame")
         quality_col.pack(side="left", fill="x", expand=True)
         ttk.Label(quality_col, text="Quality").pack(anchor="w")
-        self.quality_combo = ttk.Combobox(
-            quality_col, textvariable=self.quality_var, values=list(QUALITY_OPTIONS.keys()),
-            state="readonly", style="TCombobox"
+        self.quality_combo = Select2Combo(
+            quality_col, values=list(QUALITY_OPTIONS.keys()), textvariable=self.quality_var
         )
-        self.quality_combo.pack(fill="x", pady=(4, 0), ipady=3)
+        self.quality_combo.pack(fill="x", pady=(4, 0))
         ttk.Checkbutton(
             quality_col, text="Download the full playlist if this link is part of one",
             variable=self.playlist_var, style="TCheckbutton"
@@ -466,7 +558,7 @@ class NWGrabioApp(tk.Tk):
         status_label.pack(side="left", padx=(16, 0))
 
         # Toast banner, hidden until a download completes
-        self.toast = tk.Label(root, bg=SUCCESS, fg="#0B1310", font=("Segoe UI", 9, "bold"), anchor="w", padx=14, pady=6)
+        self.toast = tk.Label(root, bg=SUCCESS, fg="#FFFFFF", font=("Segoe UI", 9, "bold"), anchor="w", padx=14, pady=6)
 
         # Progress bar
         progress_frame = ttk.Frame(root, style="TFrame")
@@ -615,7 +707,7 @@ class NWGrabioApp(tk.Tk):
 
     # ---------- toast ----------
 
-    def _show_toast(self, text, bg=SUCCESS, fg="#0B1310", duration_ms=4000):
+    def _show_toast(self, text, bg=SUCCESS, fg="#FFFFFF", duration_ms=4000):
         self.toast.configure(text=text, bg=bg, fg=fg)
         self.toast.pack(fill="x", padx=24, pady=(0, 4), before=self.progress_bar.master)
         self.after(duration_ms, self._hide_toast)
@@ -923,7 +1015,7 @@ class NWGrabioApp(tk.Tk):
                     self.recent_downloads.insert(0, {"name": name, "path": self.last_downloaded_path, "dir": payload})
                     self.recent_downloads = self.recent_downloads[:5]
                     self._refresh_recent_list()
-                    self._show_toast("Download complete. Click Open Folder to view your file.", bg=SUCCESS, fg="#0B1310")
+                    self._show_toast("Download complete. Click Open Folder to view your file.", bg=SUCCESS, fg="#FFFFFF")
                 elif kind == "done_cancelled":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")
