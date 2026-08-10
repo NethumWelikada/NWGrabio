@@ -441,48 +441,79 @@ class NWGrabioApp(tk.Tk):
         self._build_download_tab(self.download_tab)
         self._build_about_tab(self.about_tab)
 
-    def _build_download_tab(self, root):
-        # Header
-        header = ttk.Frame(root, style="TFrame")
-        header.pack(fill="x", padx=24, pady=(20, 8))
+    def _section_label(self, parent, text):
+        row = tk.Frame(parent, bg=BG_MAIN)
+        row.pack(fill="x", anchor="w", pady=(0, 6))
+        tk.Frame(row, bg=ACCENT, width=3, height=15).pack(side="left", padx=(0, 8), pady=(2, 0))
+        tk.Label(row, text=text, bg=BG_MAIN, fg=FG_TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
 
-        logo_holder = tk.Frame(header, bg=BG_DARK, width=40, height=40)
+    def _card(self, parent, **pack_opts):
+        card = tk.Frame(parent, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+        defaults = dict(fill="x", pady=(0, 16))
+        defaults.update(pack_opts)
+        card.pack(**defaults)
+        inner = tk.Frame(card, bg=BG_CARD)
+        inner.pack(fill="both", expand=True, padx=18, pady=16)
+        return inner
+
+    def _build_download_tab(self, root):
+        # A scrollable canvas wraps everything so nothing is ever clipped
+        # by the window height, regardless of how much content is showing.
+        canvas = tk.Canvas(root, bg=BG_MAIN, highlightthickness=0)
+        vscroll = ttk.Scrollbar(root, orient="vertical", command=canvas.yview)
+        content = tk.Frame(canvas, bg=BG_MAIN)
+
+        content_window = canvas.create_window((0, 0), window=content, anchor="nw")
+        content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfig(content_window, width=e.width))
+        canvas.configure(yscrollcommand=vscroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        vscroll.pack(side="right", fill="y")
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        pad = 24
+
+        # Header
+        header = tk.Frame(content, bg=BG_MAIN)
+        header.pack(fill="x", padx=pad, pady=(22, 6))
+
+        logo_holder = tk.Frame(header, bg=BG_MAIN, width=40, height=40)
         logo_holder.pack(side="left", padx=(0, 12))
         logo_holder.pack_propagate(False)
         if self._app_icon_image is not None:
-            tk.Label(logo_holder, image=self._app_icon_image, bg=BG_DARK).pack(fill="both", expand=True)
+            tk.Label(logo_holder, image=self._app_icon_image, bg=BG_MAIN).pack(fill="both", expand=True)
         else:
-            logo_canvas = tk.Canvas(logo_holder, width=40, height=40, bg=BG_DARK, highlightthickness=0)
+            logo_canvas = tk.Canvas(logo_holder, width=40, height=40, bg=BG_MAIN, highlightthickness=0)
             logo_canvas.pack(fill="both", expand=True)
             logo_canvas.create_oval(2, 2, 38, 38, outline=ACCENT, width=3)
             logo_canvas.create_line(20, 11, 20, 25, fill=ACCENT, width=4)
             logo_canvas.create_polygon(11, 20, 29, 20, 20, 31, fill=ACCENT)
-            logo_canvas.create_oval(27, 27, 36, 36, fill=ACCENT_2, outline="")
 
-        title_col = ttk.Frame(header, style="TFrame")
+        title_col = tk.Frame(header, bg=BG_MAIN)
         title_col.pack(side="left")
-        ttk.Label(title_col, text=APP_NAME, style="Title.TLabel").pack(anchor="w")
-        ttk.Label(title_col, text=APP_TAGLINE, style="Tagline.TLabel").pack(anchor="w")
+        tk.Label(title_col, text=APP_NAME, bg=BG_MAIN, fg=FG_TEXT, font=("Segoe UI", 20, "bold")).pack(anchor="w")
+        tk.Label(title_col, text=APP_TAGLINE, bg=BG_MAIN, fg=ACCENT, font=("Segoe UI", 10, "bold")).pack(anchor="w")
 
-        # Site badges
-        badges = ttk.Frame(root, style="TFrame")
-        badges.pack(fill="x", padx=24, pady=(0, 14))
+        badges = tk.Frame(content, bg=BG_MAIN)
+        badges.pack(fill="x", padx=pad, pady=(2, 18))
         for name in SUPPORTED_SITE_BADGES:
-            chip = tk.Label(badges, text=name, bg=BG_GLASS_LIGHT, fg=ACCENT, font=("Segoe UI", 8, "bold"),
-                             padx=10, pady=3)
-            chip.pack(side="left", padx=(0, 6))
+            tk.Label(badges, text=name, bg=BG_CARD_TINT, fg=ACCENT, font=("Segoe UI", 8, "bold"),
+                     padx=9, pady=3).pack(side="left", padx=(0, 6))
 
-        # URL input, no fetch button, auto-detects on paste or typing
-        url_frame = ttk.Frame(root, style="TFrame")
-        url_frame.pack(fill="x", padx=24, pady=(4, 4))
-        ttk.Label(url_frame, text="Video or page URL").pack(anchor="w")
+        # Card: add a link
+        link_card = self._card(content, padx=pad)
+        self._section_label(link_card, "Add a link")
 
-        entry_row = ttk.Frame(url_frame, style="TFrame")
-        entry_row.pack(fill="x", pady=(4, 0))
+        entry_row = tk.Frame(link_card, bg=BG_CARD)
+        entry_row.pack(fill="x")
         self.url_entry = ttk.Entry(entry_row, textvariable=self.url_var, style="TEntry")
         self.url_entry.pack(side="left", fill="x", expand=True, ipady=4)
         self.url_entry.bind("<Return>", lambda e: self._fetch_info())
-
         ttk.Button(entry_row, text="Paste", style="Secondary.TButton", command=self._paste_url).pack(
             side="left", padx=(8, 0)
         )
@@ -490,33 +521,33 @@ class NWGrabioApp(tk.Tk):
             side="left", padx=(8, 0)
         )
 
-        hint = ttk.Label(
-            url_frame,
-            text="Paste a link and NWGrabio fetches it automatically, no extra clicks needed.",
-            style="Muted.TLabel",
-        )
-        hint.pack(anchor="w", pady=(4, 0))
+        tk.Label(link_card, text="Paste a link and NWGrabio fetches it automatically, no extra clicks needed.",
+                 bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9)).pack(anchor="w", pady=(6, 12))
 
-        # Info panel with thumbnail preview, glass styled
-        self.info_panel = tk.Frame(root, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1)
-        self.info_panel.pack(fill="x", padx=24, pady=(14, 4))
-        inner = tk.Frame(self.info_panel, bg=BG_GLASS)
-        inner.pack(fill="x", padx=14, pady=12)
+        preview_row = tk.Frame(link_card, bg=BG_CARD_TINT, highlightbackground=BORDER, highlightthickness=1)
+        preview_row.pack(fill="x")
+        preview_inner = tk.Frame(preview_row, bg=BG_CARD_TINT)
+        preview_inner.pack(fill="x", padx=12, pady=10)
 
-        self.thumb_label = tk.Label(inner, bg=BG_FIELD, width=20, height=5)
-        self.thumb_label.pack(side="left", padx=(0, 14))
+        self.thumb_label = tk.Label(preview_inner, bg=BG_FIELD, width=14, height=4)
+        self.thumb_label.pack(side="left", padx=(0, 12))
 
-        title_label = ttk.Label(inner, textvariable=self.title_var, style="Glass.TLabel", wraplength=620, justify="left")
+        title_label = tk.Label(preview_inner, textvariable=self.title_var, bg=BG_CARD_TINT, fg=FG_TEXT,
+                                font=("Segoe UI", 10), wraplength=560, justify="left", anchor="w")
         title_label.pack(side="left", fill="x", expand=True, anchor="w")
         self._wrap_labels.append(title_label)
+        self.info_panel = preview_row
 
-        # Options row: quality, playlist toggle, folder
-        options_row = ttk.Frame(root, style="TFrame")
-        options_row.pack(fill="x", padx=24, pady=(14, 4))
+        # Card: download settings
+        settings_card = self._card(content, padx=pad)
+        self._section_label(settings_card, "Download settings")
 
-        quality_col = ttk.Frame(options_row, style="TFrame")
+        options_row = tk.Frame(settings_card, bg=BG_CARD)
+        options_row.pack(fill="x")
+
+        quality_col = tk.Frame(options_row, bg=BG_CARD)
         quality_col.pack(side="left", fill="x", expand=True)
-        ttk.Label(quality_col, text="Quality").pack(anchor="w")
+        tk.Label(quality_col, text="Quality", bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9)).pack(anchor="w")
         self.quality_combo = Select2Combo(
             quality_col, values=list(QUALITY_OPTIONS.keys()), textvariable=self.quality_var
         )
@@ -524,12 +555,12 @@ class NWGrabioApp(tk.Tk):
         ttk.Checkbutton(
             quality_col, text="Download the full playlist if this link is part of one",
             variable=self.playlist_var, style="TCheckbutton"
-        ).pack(anchor="w", pady=(8, 0))
+        ).pack(anchor="w", pady=(10, 0))
 
-        folder_col = ttk.Frame(options_row, style="TFrame")
-        folder_col.pack(side="left", fill="x", expand=True, padx=(16, 0))
-        ttk.Label(folder_col, text="Save to folder").pack(anchor="w")
-        folder_inner = ttk.Frame(folder_col, style="TFrame")
+        folder_col = tk.Frame(options_row, bg=BG_CARD)
+        folder_col.pack(side="left", fill="x", expand=True, padx=(20, 0))
+        tk.Label(folder_col, text="Save to folder", bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9)).pack(anchor="w")
+        folder_inner = tk.Frame(folder_col, bg=BG_CARD)
         folder_inner.pack(fill="x", pady=(4, 0))
         self.folder_entry = ttk.Entry(folder_inner, textvariable=self.output_dir, style="TEntry")
         self.folder_entry.pack(side="left", fill="x", expand=True, ipady=3)
@@ -537,60 +568,60 @@ class NWGrabioApp(tk.Tk):
             side="left", padx=(8, 0)
         )
 
-        # Action row
-        action_row = ttk.Frame(root, style="TFrame")
-        action_row.pack(fill="x", padx=24, pady=(18, 4))
+        # Toast banner, hidden until a download completes or fails
+        self.toast = tk.Label(content, bg=SUCCESS, fg="#FFFFFF", font=("Segoe UI", 9, "bold"), anchor="w", padx=14, pady=6)
 
+        # Card: download action, progress, and status
+        action_card = self._card(content, padx=pad)
+        self._action_card_frame = action_card.master
+        self._section_label(action_card, "Download")
+
+        action_row = tk.Frame(action_card, bg=BG_CARD)
+        action_row.pack(fill="x")
         self.download_btn = ttk.Button(action_row, text="Download", style="Accent.TButton", command=self._start_download)
         self.download_btn.pack(side="left")
-
         self.cancel_btn = ttk.Button(action_row, text="Cancel", style="Danger.TButton", command=self._cancel_download)
         self.cancel_btn.pack(side="left", padx=(8, 0))
         self.cancel_btn.state(["disabled"])
-
         self.open_folder_btn = ttk.Button(
             action_row, text="Open Folder", style="Success.TButton", command=self._open_folder
         )
         self.open_folder_btn.pack(side="left", padx=(8, 0))
         self.open_folder_btn.state(["disabled"])
 
-        status_label = ttk.Label(action_row, textvariable=self.status_var, style="Muted.TLabel")
-        status_label.pack(side="left", padx=(16, 0))
-
-        # Toast banner, hidden until a download completes
-        self.toast = tk.Label(root, bg=SUCCESS, fg="#FFFFFF", font=("Segoe UI", 9, "bold"), anchor="w", padx=14, pady=6)
-
-        # Progress bar
-        progress_frame = ttk.Frame(root, style="TFrame")
-        progress_frame.pack(fill="x", padx=24, pady=(14, 4))
         self.progress_bar = ttk.Progressbar(
-            progress_frame, style="Dark.Horizontal.TProgressbar", variable=self.progress_value, maximum=100
+            action_card, style="Dark.Horizontal.TProgressbar", variable=self.progress_value, maximum=100
         )
-        self.progress_bar.pack(fill="x", ipady=4)
+        self.progress_bar.pack(fill="x", ipady=4, pady=(14, 6))
 
-        # Log + recent downloads, side by side, both expand responsively
-        body_row = ttk.Frame(root, style="TFrame")
-        body_row.pack(fill="both", expand=True, padx=24, pady=(14, 16))
+        status_label = tk.Label(action_card, textvariable=self.status_var, bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 9))
+        status_label.pack(anchor="w")
 
-        log_col = ttk.Frame(body_row, style="TFrame")
+        # Activity log and recent downloads, side by side, fixed sensible height
+        body_row = tk.Frame(content, bg=BG_MAIN)
+        body_row.pack(fill="x", padx=pad, pady=(0, 24))
+
+        log_col = tk.Frame(body_row, bg=BG_MAIN)
         log_col.pack(side="left", fill="both", expand=True)
-        ttk.Label(log_col, text="Activity log").pack(anchor="w")
-        log_container = tk.Frame(log_col, bg=BG_FIELD, highlightbackground=BORDER_LIGHT, highlightthickness=1)
-        log_container.pack(fill="both", expand=True, pady=(4, 0))
+        self._section_label(log_col, "Activity log")
+        log_container = tk.Frame(log_col, bg=BG_FIELD, highlightbackground=BORDER, highlightthickness=1, height=180)
+        log_container.pack(fill="x")
+        log_container.pack_propagate(False)
         self.log_text = tk.Text(
             log_container, bg=BG_FIELD, fg=FG_TEXT, insertbackground=FG_TEXT, relief="flat",
-            wrap="word", font=("Consolas", 9), padx=10, pady=8, height=8
+            wrap="word", font=("Consolas", 9), padx=10, pady=8
         )
         self.log_text.pack(side="left", fill="both", expand=True)
         log_scroll = ttk.Scrollbar(log_container, command=self.log_text.yview)
         log_scroll.pack(side="right", fill="y")
         self.log_text.configure(yscrollcommand=log_scroll.set, state="disabled")
 
-        recent_col = ttk.Frame(body_row, style="TFrame")
+        recent_col = tk.Frame(body_row, bg=BG_MAIN)
         recent_col.pack(side="left", fill="both", padx=(16, 0))
-        ttk.Label(recent_col, text="Recent downloads").pack(anchor="w")
-        self.recent_container = tk.Frame(recent_col, bg=BG_GLASS, highlightbackground=BORDER_LIGHT, highlightthickness=1, width=260)
-        self.recent_container.pack(fill="both", expand=True, pady=(4, 0))
+        self._section_label(recent_col, "Recent downloads")
+        self.recent_container = tk.Frame(recent_col, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1,
+                                          width=260, height=180)
+        self.recent_container.pack(fill="both")
         self.recent_container.pack_propagate(False)
         self._refresh_recent_list()
 
@@ -709,7 +740,7 @@ class NWGrabioApp(tk.Tk):
 
     def _show_toast(self, text, bg=SUCCESS, fg="#FFFFFF", duration_ms=4000):
         self.toast.configure(text=text, bg=bg, fg=fg)
-        self.toast.pack(fill="x", padx=24, pady=(0, 4), before=self.progress_bar.master)
+        self.toast.pack(fill="x", padx=24, pady=(0, 4), before=self._action_card_frame)
         self.after(duration_ms, self._hide_toast)
 
     def _hide_toast(self):
