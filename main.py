@@ -174,11 +174,9 @@ class Select2Combo(tk.Frame):
         self.popup.overrideredirect(True)
         self.popup.configure(bg=BORDER_LIGHT)
 
-        x = self.field.winfo_rootx()
-        y = self.field.winfo_rooty() + self.field.winfo_height() + 2
-        width = self.field.winfo_width()
         height = min(220, 26 * len(self.values) + 38)
-        self.popup.geometry(f"{width}x{height}+{x}+{y}")
+        self._popup_height = height
+        self._reposition_popup()
 
         self.search_var = tk.StringVar()
         search_entry = tk.Entry(self.popup, textvariable=self.search_var, bg=BG_FIELD, fg=FG_TEXT,
@@ -193,6 +191,26 @@ class Select2Combo(tk.Frame):
 
         self._render_options(self.values)
         self.popup.bind("<FocusOut>", lambda e: self.after(120, self._close_if_unfocused))
+
+        # Keep the popup glued to the field if the main window is moved or
+        # resized while the dropdown is open, instead of staying pinned to
+        # its original screen position.
+        self._root_window = self.winfo_toplevel()
+        self._root_configure_id = self._root_window.bind("<Configure>", self._on_root_configure, add="+")
+
+    def _on_root_configure(self, event=None):
+        if self.popup is None:
+            return
+        self._reposition_popup()
+
+    def _reposition_popup(self):
+        if self.popup is None:
+            return
+        x = self.field.winfo_rootx()
+        y = self.field.winfo_rooty() + self.field.winfo_height() + 2
+        width = self.field.winfo_width()
+        height = getattr(self, "_popup_height", 220)
+        self.popup.geometry(f"{width}x{height}+{x}+{y}")
 
     def _close_if_unfocused(self):
         if self.popup is None:
@@ -232,6 +250,12 @@ class Select2Combo(tk.Frame):
 
     def _close(self):
         self.field.configure(highlightbackground=BORDER_LIGHT)
+        if getattr(self, "_root_configure_id", None):
+            try:
+                self._root_window.unbind("<Configure>", self._root_configure_id)
+            except Exception:
+                pass
+            self._root_configure_id = None
         if self.popup is not None:
             try:
                 self.popup.destroy()
