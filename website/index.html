@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NWGrabio — Grab Anything, From Anywhere.</title>
+<meta name="description" content="Free, open source Windows app for downloading video and audio from YouTube, TikTok, Instagram, Facebook, and 1,000+ other sites, up to 8K.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F8F9;
+    --surface: #FFFFFF;
+    --surface-tint: #EAF1FF;
+    --text: #1A1A1A;
+    --muted: #6B7280;
+    --accent: #0066FF;
+    --accent-hover: #0052CC;
+    --border: #E4E7EC;
+    --success: #16A34A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, .display {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ---------- Nav ---------- */
+
+  nav {
+    padding: 22px 0;
+  }
+
+  nav .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2.5px solid var(--accent);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .brand-mark::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    width: 3px;
+    height: 32%;
+    background: var(--accent);
+    transform: translateX(-50%);
+  }
+
+  .brand-mark::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 58%;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--accent);
+    transform: translateX(-50%);
+  }
+
+  nav .github-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  nav .github-link:hover { color: var(--text); }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    padding: 56px 0 88px;
+  }
+
+  .hero .wrap {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 56px;
+    align-items: center;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-tint);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+
+  .hero h1 {
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  .hero p.lead {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 460px;
+    margin-bottom: 32px;
+  }
+
+  .cta-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 14px 24px;
+    border-radius: 10px;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0,102,255,0.25);
+  }
+
+  .btn-primary svg { width: 18px; height: 18px; }
+
+  .cta-meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .cta-meta strong { color: var(--text); }
+
+  .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 36px;
+  }
+
+  .badge {
+    background: var(--surface-tint);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 100px;
+  }
+
+  /* ---------- App mockup (hero visual) ---------- */
+
+  .mockup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 30px 60px -20px rgba(26,26,26,0.18);
+    overflow: hidden;
+    animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .mockup-titlebar {
+    background: #F1F3F5;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mockup-titlebar .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #D0D5DD;
+  }
+
+  .mockup-body { padding: 22px; }
+
+  .mockup-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .mockup-logo-row .brand-mark { width: 24px; height: 24px; border-width: 2px; }
+
+  .mockup-appname {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .mockup-tagline {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .mockup-field-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .mockup-field {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    margin-bottom: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mockup-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 11px;
+    color: var(--text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .mockup-select span:last-child { color: var(--muted); }
+
+  .mockup-btn-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .mockup-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 6px;
+  }
+
+  .mockup-btn.primary { background: var(--accent); color: #fff; }
+  .mockup-btn.ghost { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+  .mockup-progress {
+    height: 6px;
+    border-radius: 100px;
+    background: var(--bg);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .mockup-progress-fill {
+    height: 100%;
+    width: 63%;
+    background: var(--accent);
+    border-radius: 100px;
+  }
+
+  .mockup-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--success);
+    line-height: 1.6;
+  }
+
+  .mockup-log .muted-line { color: var(--muted); }
+
+  /* ---------- Features ---------- */
+
+  .features { padding: 64px 0 88px; }
+
+  .section-head { max-width: 560px; margin-bottom: 44px; }
+
+  .section-head .eyebrow-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  .section-head h2 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .section-head p { color: var(--muted); font-size: 16px; }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .feature-card {
+    background: var(--surface);
+    padding: 28px 24px;
+  }
+
+  .feature-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--surface-tint);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .feature-icon svg { width: 18px; height: 18px; }
+
+  .feature-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* ---------- Sites strip ---------- */
+
+  .sites-strip {
+    padding: 40px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sites-strip .wrap {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .sites-strip .label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .site-chip {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    border-radius: 100px;
+  }
+
+  /* ---------- Final CTA ---------- */
+
+  .final-cta {
+    padding: 88px 0;
+    text-align: center;
+  }
+
+  .final-cta h2 {
+    font-size: 34px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .final-cta p {
+    color: var(--muted);
+    font-size: 16px;
+    margin-bottom: 30px;
+  }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+  }
+
+  footer .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  footer .credit {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  footer .credit strong { color: var(--text); }
+
+  footer .links {
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+  }
+
+  footer .links a { color: var(--muted); text-decoration: none; }
+  footer .links a:hover { color: var(--accent); }
+
+  /* ---------- Responsive ---------- */
+
+  @media (max-width: 860px) {
+    .hero .wrap { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 38px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    footer .wrap { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mockup { animation: none; }
+    .btn-primary { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      NWGrabio
+    </div>
+    <a class="github-link" href="https://github.com/NethumWelikada/NWGrabio" target="_blank" rel="noopener">
+      View on GitHub
+    </a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Free &amp; open source</div>
+      <h1>Grab Anything,<br><span>From Anywhere.</span></h1>
+      <p class="lead">
+        Download video and audio from YouTube, TikTok, Instagram, Facebook, and
+        1,000+ other sites, up to 8K quality. Paste a link and go, no sign-up,
+        no watermarks, no nonsense.
+      </p>
+      <div class="cta-row">
+        <a class="btn-primary" href="https://github.com/NethumWelikada/NWGrabio/releases/latest/download/NWGrabio-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for Windows
+        </a>
+        <span class="cta-meta">Free &middot; Windows 7&ndash;11 &middot; <strong>v1.1.0</strong></span>
+      </div>
+      <div class="badge-row">
+        <span class="badge">YouTube</span>
+        <span class="badge">Facebook</span>
+        <span class="badge">TikTok</span>
+        <span class="badge">Instagram</span>
+        <span class="badge">Twitter / X</span>
+        <span class="badge">Vimeo</span>
+        <span class="badge">+1000 more</span>
+      </div>
+    </div>
+
+    <div class="mockup">
+      <div class="mockup-titlebar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        NWGrabio - Grab Anything, From Anywhere.
+      </div>
+      <div class="mockup-body">
+        <div class="mockup-logo-row">
+          <span class="brand-mark"></span>
+          <div>
+            <div class="mockup-appname">NWGrabio</div>
+            <div class="mockup-tagline">Grab Anything, From Anywhere.</div>
+          </div>
+        </div>
+
+        <div class="mockup-field-label">Video or page URL</div>
+        <div class="mockup-field">https://youtu.be/dQw4w9WgXcQ</div>
+
+        <div class="mockup-field-label">Quality</div>
+        <div class="mockup-select">
+          <span>Best Available (Auto, up to 8K)</span>
+          <span>&#9662;</span>
+        </div>
+
+        <div class="mockup-btn-row">
+          <span class="mockup-btn primary">Download</span>
+          <span class="mockup-btn ghost">Cancel</span>
+          <span class="mockup-btn ghost">Open Folder</span>
+        </div>
+
+        <div class="mockup-progress"><div class="mockup-progress-fill"></div></div>
+
+        <div class="mockup-log">
+          <div class="muted-line">Ready. Paste a link above to get started.</div>
+          <div>Video information loaded.</div>
+          <div>Downloading&nbsp; 63.4%&nbsp; |&nbsp; 4.82 MB/s&nbsp; |&nbsp; ETA 6s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow-text">What it does</div>
+      <h2>Built to get out of your way</h2>
+      <p>No accounts, no ads, no watching a countdown timer. Paste a link, pick a quality, download.</p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <h3>Paste and go</h3>
+        <p>Details load automatically the moment you paste a link. No fetch button, no extra clicks.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+        </div>
+        <h3>Up to 8K quality</h3>
+        <p>Pick the exact resolution you want, or let Best Available choose the highest one offered.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </div>
+        <h3>Batch downloads</h3>
+        <p>Queue up several links and NWGrabio works through them one after another.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        </div>
+        <h3>Subtitles included</h3>
+        <p>Save captions alongside the video with a single checkbox, no separate tool needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </div>
+        <h3>Resumes automatically</h3>
+        <p>Cancelled or interrupted mid-download? Try the same link again and it picks up right where it left off.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <h3>1,000+ sites supported</h3>
+        <p>YouTube, TikTok, Instagram, Facebook, Vimeo, Reddit, and hundreds more, all through one app.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="sites-strip">
+  <div class="wrap">
+    <span class="label">Works with</span>
+    <span class="site-chip">YouTube</span>
+    <span class="site-chip">Facebook</span>
+    <span class="site-chip">TikTok</span>
+    <span class="site-chip">Instagram</span>
+    <span class="site-chip">Twitter / X</span>
+    <span class="site-chip">Vimeo</span>
+    <span class="site-chip">Reddit</span>
+    <span class="site-chip">+1000 more</span>
+  </div>
+</div>
+
+<section class="final-cta">
+  <div class="wrap">
+    <h2>Ready to grab something?</h2>
+    <p>Free download, no account required. Windows 7 through 11.</p>
+    <a class="btn-primary" href="https://github.com/NethumWelikada/NWGrabio/releases/latest/download/NWGrabio-Setup.exe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download NWGrabio
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="credit">
+      Developed by <strong>Nethum Welikada</strong><br>
+      Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada
+    </div>
+    <div class="links">
+      <a href="https://github.com/NethumWelikada/NWGrabio" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/NethumWelikada/NWGrabio/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      <a href="https://github.com/NethumWelikada/NWGrabio/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
