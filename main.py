@@ -37,7 +37,7 @@ except ImportError:
 
 APP_NAME = "NWGrabio"
 APP_TAGLINE = "Grab Anything, From Anywhere."
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 DEVELOPER_NAME = "Nethum Welikada"
 DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
 DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"
@@ -95,6 +95,27 @@ QUALITY_OPTIONS = {
 
 SUPPORTED_SITE_BADGES = ["YouTube", "Facebook", "TikTok", "Instagram", "Twitter / X", "Vimeo", "+1000 more"]
 SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".nwgrabio_settings.json")
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_settings(updates):
+    settings = load_settings()
+    settings.update(updates)
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f)
+    except Exception:
+        pass
 
 
 def get_default_download_folder():
@@ -283,8 +304,8 @@ class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} - {APP_TAGLINE}")
-        self.geometry("640x600")
-        self.minsize(620, 580)
+        self.geometry("640x635")
+        self.minsize(620, 615)
         self.configure(bg=BG_DARK)
 
         # Start invisible, fade in once the window is ready. Purely cosmetic,
@@ -310,8 +331,12 @@ class NWGrabioApp(tk.Tk):
 
         self.output_dir = tk.StringVar(value=get_default_download_folder())
         self.url_var = tk.StringVar()
-        self.quality_var = tk.StringVar(value=list(QUALITY_OPTIONS.keys())[0])
+        saved_settings = load_settings()
+        saved_quality = saved_settings.get("quality")
+        default_quality = saved_quality if saved_quality in QUALITY_OPTIONS else list(QUALITY_OPTIONS.keys())[0]
+        self.quality_var = tk.StringVar(value=default_quality)
         self.playlist_var = tk.BooleanVar(value=False)
+        self.subtitles_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value="Ready")
         self.title_var = tk.StringVar(
             value="Paste a video or page link above. NWGrabio fetches details automatically, no extra clicks."
@@ -320,6 +345,7 @@ class NWGrabioApp(tk.Tk):
         self.thumbnail_photo = None
         self.last_downloaded_path = None
         self.recent_downloads = []
+        self.download_queue = []
 
         self.msg_queue = queue.Queue()
         self.download_thread = None
@@ -523,11 +549,15 @@ class NWGrabioApp(tk.Tk):
         ttk.Button(entry_row, text="Paste", style="Secondary.TButton", command=self._paste_url).pack(
             side="left", padx=(8, 0)
         )
+        ttk.Button(entry_row, text="+ Queue", style="Secondary.TButton", command=self._add_to_queue).pack(
+            side="left", padx=(8, 0)
+        )
         ttk.Button(entry_row, text="Clear", style="Secondary.TButton", command=self._clear_url).pack(
             side="left", padx=(8, 0)
         )
 
-        tk.Label(link_card, text="Paste a link, details load automatically.",
+        self.queue_hint_var = tk.StringVar(value="Paste a link, details load automatically.")
+        tk.Label(link_card, textvariable=self.queue_hint_var,
                  bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 8)).pack(anchor="w", pady=(3, 5))
 
         preview_row = tk.Frame(link_card, bg=BG_CARD_TINT, highlightbackground=BORDER, highlightthickness=1)
@@ -555,13 +585,18 @@ class NWGrabioApp(tk.Tk):
         quality_col.pack(side="left", fill="x", expand=True)
         tk.Label(quality_col, text="Quality", bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 8)).pack(anchor="w")
         self.quality_combo = Select2Combo(
-            quality_col, values=list(QUALITY_OPTIONS.keys()), textvariable=self.quality_var
+            quality_col, values=list(QUALITY_OPTIONS.keys()), textvariable=self.quality_var,
+            on_change=lambda v: save_settings({"quality": v})
         )
         self.quality_combo.pack(fill="x", pady=(2, 0))
         ttk.Checkbutton(
             quality_col, text="Download full playlist",
             variable=self.playlist_var, style="TCheckbutton"
         ).pack(anchor="w", pady=(6, 0))
+        ttk.Checkbutton(
+            quality_col, text="Also save subtitles (.srt)",
+            variable=self.subtitles_var, style="TCheckbutton"
+        ).pack(anchor="w", pady=(3, 0))
 
         folder_col = tk.Frame(options_row, bg=BG_CARD)
         folder_col.pack(side="left", fill="x", expand=True, padx=(14, 0))
@@ -803,6 +838,19 @@ class NWGrabioApp(tk.Tk):
         self.thumbnail_photo = None
         self.thumb_label.configure(image="", width=20, height=5)
 
+    def _add_to_queue(self):
+        url = self.url_var.get().strip()
+        if not looks_like_url(url):
+            messagebox.showinfo(APP_NAME, "Paste a valid link first, then click + Queue.")
+            return
+        self.download_queue.append(url)
+        self._clear_url()
+        count = len(self.download_queue)
+        self.queue_hint_var.set(
+            f"{count} link{'s' if count != 1 else ''} queued. Paste another and click + Queue, "
+            f"or click Download to start."
+        )
+
     def _browse_folder(self):
         folder = filedialog.askdirectory(initialdir=self.output_dir.get())
         if folder:
@@ -942,8 +990,11 @@ class NWGrabioApp(tk.Tk):
     # ---------- download ----------
 
     def _start_download(self):
-        url = self.url_var.get().strip()
-        if not url:
+        urls = list(self.download_queue)
+        current = self.url_var.get().strip()
+        if current and looks_like_url(current):
+            urls.append(current)
+        if not urls:
             messagebox.showwarning(APP_NAME, "Please enter a video or page URL first.")
             return
         if yt_dlp is None:
@@ -956,6 +1007,10 @@ class NWGrabioApp(tk.Tk):
         out_dir = self.output_dir.get().strip() or get_default_download_folder()
         os.makedirs(out_dir, exist_ok=True)
 
+        self.download_queue = []
+        self._clear_url()
+        self.queue_hint_var.set("Paste a link, details load automatically.")
+
         self.cancel_flag.clear()
         self.download_btn.state(["disabled"])
         self.cancel_btn.state(["!disabled"])
@@ -963,76 +1018,104 @@ class NWGrabioApp(tk.Tk):
         self.progress_bar.configure(mode="determinate")
         self.progress_value.set(0)
         self._start_spinner("Starting download")
-        self._log(f"Starting download: {url}")
+        if len(urls) > 1:
+            self._log(f"Starting batch download of {len(urls)} links.")
+        else:
+            self._log(f"Starting download: {urls[0]}")
 
-        self.download_thread = threading.Thread(target=self._download_worker, args=(url, out_dir), daemon=True)
+        self.download_thread = threading.Thread(target=self._download_worker, args=(urls, out_dir), daemon=True)
         self.download_thread.start()
 
-    def _download_worker(self, url, out_dir):
+    def _download_worker(self, urls, out_dir):
         quality_label = self.quality_var.get()
         fmt = QUALITY_OPTIONS.get(quality_label, "bestvideo+bestaudio/best")
         is_audio_only = quality_label.startswith("Audio Only")
+        total = len(urls)
+        completed = 0
+        failed = 0
 
-        def progress_hook(d):
+        for idx, url in enumerate(urls, start=1):
             if self.cancel_flag.is_set():
-                raise yt_dlp.utils.DownloadError("Cancelled by user")
-            if d.get("status") == "downloading":
-                total = d.get("total_bytes") or d.get("total_bytes_estimate")
-                downloaded = d.get("downloaded_bytes", 0)
-                percent = (downloaded / total * 100) if total else 0
-                speed = d.get("speed")
-                eta = d.get("eta")
-                speed_str = f"{speed / 1024 / 1024:.2f} MB/s" if speed else "..."
-                eta_str = f"{eta}s" if eta else "..."
-                self.msg_queue.put(("progress", percent))
-                self.msg_queue.put(("status", f"Downloading  {percent:0.1f}%  |  {speed_str}  |  ETA {eta_str}"))
-            elif d.get("status") == "finished":
-                self.msg_queue.put(("merging_start", None))
-                fn = d.get("filename")
-                if fn:
-                    self.msg_queue.put(("last_file", fn))
+                break
 
-        def pp_hook(d):
-            if d.get("status") == "finished":
-                fp = (d.get("info_dict") or {}).get("filepath")
-                if fp:
-                    self.msg_queue.put(("last_file", fp))
+            prefix = f"Item {idx}/{total}  |  " if total > 1 else ""
 
-        ydl_opts = {
-            "format": fmt,
-            "outtmpl": os.path.join(out_dir, "%(title)s.%(ext)s"),
-            "progress_hooks": [progress_hook],
-            "postprocessor_hooks": [pp_hook],
-            "merge_output_format": "mp4",
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": not self.playlist_var.get(),
-        }
+            def progress_hook(d, prefix=prefix):
+                if self.cancel_flag.is_set():
+                    raise yt_dlp.utils.DownloadError("Cancelled by user")
+                if d.get("status") == "downloading":
+                    total_bytes = d.get("total_bytes") or d.get("total_bytes_estimate")
+                    downloaded = d.get("downloaded_bytes", 0)
+                    percent = (downloaded / total_bytes * 100) if total_bytes else 0
+                    speed = d.get("speed")
+                    eta = d.get("eta")
+                    speed_str = f"{speed / 1024 / 1024:.2f} MB/s" if speed else "..."
+                    eta_str = f"{eta}s" if eta else "..."
+                    self.msg_queue.put(("progress", percent))
+                    self.msg_queue.put(("status", f"{prefix}Downloading  {percent:0.1f}%  |  {speed_str}  |  ETA {eta_str}"))
+                elif d.get("status") == "finished":
+                    self.msg_queue.put(("merging_start", prefix))
+                    fn = d.get("filename")
+                    if fn:
+                        self.msg_queue.put(("last_file", fn))
 
-        if self.ffmpeg_path and self.ffmpeg_path != "ffmpeg":
-            ydl_opts["ffmpeg_location"] = self.ffmpeg_path
+            def pp_hook(d):
+                if d.get("status") == "finished":
+                    fp = (d.get("info_dict") or {}).get("filepath")
+                    if fp:
+                        self.msg_queue.put(("last_file", fp))
 
-        if is_audio_only:
-            ydl_opts["postprocessors"] = [
-                {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
-            ]
-            ydl_opts.pop("merge_output_format", None)
+            ydl_opts = {
+                "format": fmt,
+                "outtmpl": os.path.join(out_dir, "%(title)s.%(ext)s"),
+                "progress_hooks": [progress_hook],
+                "postprocessor_hooks": [pp_hook],
+                "merge_output_format": "mp4",
+                "quiet": True,
+                "no_warnings": True,
+                "noplaylist": not self.playlist_var.get(),
+                # Explicitly enabled: if a download is cancelled or fails
+                # partway through, downloading the same link again resumes
+                # from the partial file instead of starting over.
+                "continuedl": True,
+            }
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            self.msg_queue.put(("done_ok", out_dir))
-        except Exception as exc:
-            if self.cancel_flag.is_set():
-                self.msg_queue.put(("done_cancelled", None))
-            else:
-                self.msg_queue.put(("done_error", str(exc)))
+            if self.ffmpeg_path and self.ffmpeg_path != "ffmpeg":
+                ydl_opts["ffmpeg_location"] = self.ffmpeg_path
+
+            if self.subtitles_var.get():
+                ydl_opts["writesubtitles"] = True
+                ydl_opts["writeautomaticsub"] = True
+                ydl_opts["subtitleslangs"] = ["en"]
+                ydl_opts["subtitlesformat"] = "srt"
+
+            if is_audio_only:
+                ydl_opts["postprocessors"] = [
+                    {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}
+                ]
+                ydl_opts.pop("merge_output_format", None)
+
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+                completed += 1
+                self.msg_queue.put(("item_done", out_dir))
+            except Exception as exc:
+                if self.cancel_flag.is_set():
+                    break
+                failed += 1
+                self.msg_queue.put(("item_error", str(exc)))
+
+        if self.cancel_flag.is_set():
+            self.msg_queue.put(("batch_cancelled", None))
+        else:
+            self.msg_queue.put(("batch_finished", (completed, failed, out_dir)))
 
     def _cancel_download(self):
         if self.download_thread and self.download_thread.is_alive():
             self.cancel_flag.set()
             self._start_spinner("Cancelling")
-            self._log("Cancelling download...", ACCENT_2)
+            self._log("Cancelling download... Partial files are kept, so downloading the same link again will resume.", ACCENT_2)
 
     # ---------- queue polling ----------
 
@@ -1065,32 +1148,36 @@ class NWGrabioApp(tk.Tk):
                     self._start_spinner("Processing / merging streams")
                 elif kind == "last_file":
                     self.last_downloaded_path = payload
-                elif kind == "done_ok":
-                    self.progress_bar.stop()
-                    self.progress_bar.configure(mode="determinate")
-                    self.progress_value.set(100)
-                    self._stop_spinner(final_text="Download complete")
-                    self._log(f"Download finished. Saved to: {payload}", SUCCESS)
-                    self._reset_buttons()
-                    self.open_folder_btn.state(["!disabled"])
+                elif kind == "item_done":
+                    self._log(f"Saved: {os.path.basename(self.last_downloaded_path or 'file')}", SUCCESS)
                     name = os.path.basename(self.last_downloaded_path) if self.last_downloaded_path else "Download"
                     self.recent_downloads.insert(0, {"name": name, "path": self.last_downloaded_path, "dir": payload})
                     self.recent_downloads = self.recent_downloads[:5]
                     self._refresh_recent_list()
-                    self._show_toast("Download complete. Click Open Folder to view your file.", bg=SUCCESS, fg="#FFFFFF")
-                elif kind == "done_cancelled":
+                elif kind == "item_error":
+                    self._log(f"An item in the queue failed: {payload}", ERROR)
+                elif kind == "batch_finished":
+                    completed, failed, out_dir = payload
+                    self.progress_bar.stop()
+                    self.progress_bar.configure(mode="determinate")
+                    self.progress_value.set(100)
+                    self._reset_buttons()
+                    if completed > 0:
+                        self.open_folder_btn.state(["!disabled"])
+                    if failed == 0:
+                        summary = "Download complete" if completed == 1 else f"All {completed} downloads complete"
+                        self._stop_spinner(final_text=summary)
+                        self._show_toast(f"{summary}. Click Open Folder to view your files.", bg=SUCCESS, fg="#FFFFFF")
+                    else:
+                        summary = f"Finished: {completed} succeeded, {failed} failed"
+                        self._stop_spinner(final_text=summary)
+                        self._show_toast(f"{summary}. See the activity log for details.", bg=ERROR, fg="#FFFFFF")
+                elif kind == "batch_cancelled":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")
                     self._stop_spinner(final_text="Cancelled")
                     self._log("Download cancelled by user.", ACCENT_2)
                     self._reset_buttons()
-                elif kind == "done_error":
-                    self.progress_bar.stop()
-                    self.progress_bar.configure(mode="determinate")
-                    self._stop_spinner(final_text="Download failed")
-                    self._log(f"Download failed: {payload}", ERROR)
-                    self._reset_buttons()
-                    self._show_toast("Download failed. See the activity log for details.", bg=ERROR, fg="#FFFFFF")
                 elif kind == "update_available":
                     latest_tag, release_url = payload
                     self._show_update_dialog(latest_tag, release_url)
