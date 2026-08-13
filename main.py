@@ -494,6 +494,8 @@ class NWGrabioApp(tk.Tk):
         help_menu = tk.Menu(menubar, tearoff=0, bg=BG_GLASS, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
         help_menu.add_command(label="About NWGrabio", command=self._show_about)
         help_menu.add_command(label="Check for Updates", command=lambda: self._check_for_updates(manual=True))
+        help_menu.add_separator()
+        help_menu.add_command(label="Visit Website", command=lambda: webbrowser.open(WEBSITE_URL))
         help_menu.add_command(label="Visit GitHub", command=lambda: webbrowser.open(DEVELOPER_GITHUB_URL))
         menubar.add_cascade(label="Help", menu=help_menu)
 
@@ -825,9 +827,14 @@ class NWGrabioApp(tk.Tk):
         dev_row("Program", DEVELOPER_PROGRAM)
         dev_row("University", DEVELOPER_SCHOOL)
 
+        website_link = tk.Label(dev_inner, text=WEBSITE_URL.rstrip("/"), bg=BG_CARD, fg=ACCENT,
+                                 font=("Segoe UI", 10, "underline"), cursor="hand2", anchor="w")
+        website_link.pack(anchor="w", pady=(8, 0))
+        website_link.bind("<Button-1>", lambda e: webbrowser.open(WEBSITE_URL))
+
         link = tk.Label(dev_inner, text=DEVELOPER_GITHUB_LABEL, bg=BG_CARD, fg=ACCENT,
                          font=("Segoe UI", 10, "underline"), cursor="hand2", anchor="w")
-        link.pack(anchor="w", pady=(8, 0))
+        link.pack(anchor="w", pady=(4, 0))
         link.bind("<Button-1>", lambda e: webbrowser.open(DEVELOPER_GITHUB_URL))
 
         tk.Label(
