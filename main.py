@@ -46,6 +46,7 @@ DEVELOPER_GITHUB_URL = "https://github.com/NethumWelikada"
 GITHUB_REPO = "NethumWelikada/NWGrabio"
 GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_RELEASES_PAGE = f"https://github.com/{GITHUB_REPO}/releases/latest"
+WEBSITE_URL = "https://nethumwelikada.github.io/NWGrabio/"
 
 
 def resource_path(relative_path):
@@ -717,7 +718,7 @@ class NWGrabioApp(tk.Tk):
         ttk.Button(btn_row, text="Later", style="Secondary.TButton", command=win.destroy).pack(side="right")
         ttk.Button(
             btn_row, text="Download Update", style="Accent.TButton",
-            command=lambda: (webbrowser.open(release_url), win.destroy())
+            command=lambda: (webbrowser.open(WEBSITE_URL), win.destroy())
         ).pack(side="right", padx=(0, 8))
 
     def _show_about(self):
