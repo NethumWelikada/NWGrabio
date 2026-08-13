@@ -2,6 +2,18 @@
 
 All notable changes to NWGrabio are documented here.
 
+## 1.2.0
+
+### Added
+- System tray support: closing the window now minimizes to the tray instead of quitting. Right click the tray icon to reopen or exit fully.
+- Notifications when a download or batch finishes, even if the window is minimized to the tray.
+- The download queue is now visible on screen, not just a count. Each queued link can be removed individually, or cleared all at once.
+- Favicon added to the website.
+
+### Changed
+- Page and window titles now use a pipe separator ("NWGrabio | Grab Anything, From Anywhere.") instead of a hyphen.
+- Window height increased slightly again to fit the queue list without any scrollbars.
+
 ## 1.1.0
 
 ### Added

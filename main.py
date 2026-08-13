@@ -30,6 +30,11 @@ except ImportError:
     imageio_ffmpeg = None
 
 try:
+    import pystray
+except ImportError:
+    pystray = None
+
+try:
     from PIL import Image, ImageTk
 except ImportError:
     Image = None
@@ -37,7 +42,7 @@ except ImportError:
 
 APP_NAME = "NWGrabio"
 APP_TAGLINE = "Grab Anything, From Anywhere."
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 DEVELOPER_NAME = "Nethum Welikada"
 DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
 DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"
@@ -304,9 +309,9 @@ class Select2Combo(tk.Frame):
 class NWGrabioApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"{APP_NAME} - {APP_TAGLINE}")
-        self.geometry("640x635")
-        self.minsize(620, 615)
+        self.title(f"{APP_NAME} | {APP_TAGLINE}")
+        self.geometry("640x700")
+        self.minsize(620, 680)
         self.configure(bg=BG_DARK)
 
         # Start invisible, fade in once the window is ready. Purely cosmetic,
@@ -381,6 +386,10 @@ class NWGrabioApp(tk.Tk):
         self.after(2000, lambda: self._check_for_updates(manual=False))
         self.after(60, self._fade_in)
 
+        self.tray_icon = None
+        self._setup_tray()
+        self.protocol("WM_DELETE_WINDOW", self._on_close_button)
+
     # ---------- window chrome ----------
 
     WINDOW_ALPHA = 1.0
@@ -408,6 +417,60 @@ class NWGrabioApp(tk.Tk):
             except Exception:
                 pass
 
+    # ---------- system tray ----------
+
+    def _setup_tray(self):
+        if pystray is None or Image is None or os.name != "nt":
+            return
+        try:
+            tray_image = Image.open(resource_path("icon.ico")).convert("RGBA")
+        except Exception:
+            return
+
+        menu = pystray.Menu(
+            pystray.MenuItem("Show NWGrabio", self._tray_show, default=True),
+            pystray.MenuItem("Exit", self._tray_exit),
+        )
+        try:
+            self.tray_icon = pystray.Icon("NWGrabio", tray_image, APP_NAME, menu)
+            threading.Thread(target=self.tray_icon.run, daemon=True).start()
+        except Exception:
+            self.tray_icon = None
+
+    def _tray_show(self, icon=None, item=None):
+        self.after(0, self._restore_from_tray)
+
+    def _restore_from_tray(self):
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    def _tray_exit(self, icon=None, item=None):
+        self.after(0, self._quit_app)
+
+    def _on_close_button(self):
+        if self.tray_icon is not None:
+            self.withdraw()
+            self._notify(APP_NAME, "NWGrabio is still running in the system tray. Right click the tray icon to reopen or exit.")
+        else:
+            self._quit_app()
+
+    def _quit_app(self):
+        if self.tray_icon is not None:
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+        self.destroy()
+
+    def _notify(self, title, message):
+        if self.tray_icon is not None:
+            try:
+                self.tray_icon.notify(message, title)
+                return
+            except Exception:
+                pass
+
     def _check_clipboard_for_link(self):
         try:
             clip = self.clipboard_get().strip()
@@ -425,7 +488,7 @@ class NWGrabioApp(tk.Tk):
         file_menu.add_command(label="Choose download folder...", command=self._browse_folder)
         file_menu.add_command(label="Open download folder", command=self._open_folder)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.destroy)
+        file_menu.add_command(label="Exit", command=self._quit_app)
         menubar.add_cascade(label="File", menu=file_menu)
 
         help_menu = tk.Menu(menubar, tearoff=0, bg=BG_GLASS, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
@@ -561,6 +624,9 @@ class NWGrabioApp(tk.Tk):
         tk.Label(link_card, textvariable=self.queue_hint_var,
                  bg=BG_CARD, fg=FG_MUTED, font=("Segoe UI", 8)).pack(anchor="w", pady=(3, 5))
 
+        self.queue_panel = tk.Frame(link_card, bg=BG_CARD)
+        # Not packed yet, shown/hidden dynamically as items are queued.
+
         preview_row = tk.Frame(link_card, bg=BG_CARD_TINT, highlightbackground=BORDER, highlightthickness=1)
         preview_row.pack(fill="x")
         preview_inner = tk.Frame(preview_row, bg=BG_CARD_TINT)
@@ -574,6 +640,7 @@ class NWGrabioApp(tk.Tk):
         title_label.pack(side="left", fill="x", expand=True, anchor="w")
         self._wrap_labels.append(title_label)
         self.info_panel = preview_row
+        self.preview_row = preview_row
 
         # Card: download settings
         settings_card = self._card(content, padx=pad)
@@ -846,11 +913,62 @@ class NWGrabioApp(tk.Tk):
             return
         self.download_queue.append(url)
         self._clear_url()
+        self._update_queue_hint()
+        self._refresh_queue_panel()
+
+    def _update_queue_hint(self):
         count = len(self.download_queue)
-        self.queue_hint_var.set(
-            f"{count} link{'s' if count != 1 else ''} queued. Paste another and click + Queue, "
-            f"or click Download to start."
-        )
+        if count == 0:
+            self.queue_hint_var.set("Paste a link, details load automatically.")
+        else:
+            self.queue_hint_var.set(
+                f"{count} link{'s' if count != 1 else ''} queued. Paste another and click + Queue, "
+                f"or click Download to start."
+            )
+
+    def _refresh_queue_panel(self):
+        for child in self.queue_panel.winfo_children():
+            child.destroy()
+
+        if not self.download_queue:
+            self.queue_panel.pack_forget()
+            return
+
+        max_visible = 3
+        for i, url in enumerate(self.download_queue[:max_visible]):
+            row = tk.Frame(self.queue_panel, bg=BG_CARD_TINT, highlightbackground=BORDER, highlightthickness=1)
+            row.pack(fill="x", pady=(0, 3))
+            short = url if len(url) <= 46 else url[:43] + "..."
+            tk.Label(row, text=short, bg=BG_CARD_TINT, fg=FG_TEXT, font=("Segoe UI", 8),
+                     anchor="w").pack(side="left", fill="x", expand=True, padx=(8, 4), pady=3)
+            remove_btn = tk.Label(row, text="\u2715", bg=BG_CARD_TINT, fg=ERROR, font=("Segoe UI", 8, "bold"),
+                                   cursor="hand2")
+            remove_btn.pack(side="right", padx=(0, 8))
+            remove_btn.bind("<Button-1>", lambda e, idx=i: self._remove_from_queue(idx))
+
+        remaining = len(self.download_queue) - max_visible
+        if remaining > 0:
+            more_row = tk.Frame(self.queue_panel, bg=BG_CARD)
+            more_row.pack(fill="x")
+            tk.Label(more_row, text=f"+{remaining} more queued", bg=BG_CARD, fg=FG_MUTED,
+                     font=("Segoe UI", 8)).pack(side="left")
+            clear_link = tk.Label(more_row, text="Clear all", bg=BG_CARD, fg=ACCENT,
+                                   font=("Segoe UI", 8, "underline"), cursor="hand2")
+            clear_link.pack(side="right")
+            clear_link.bind("<Button-1>", lambda e: self._clear_queue())
+
+        self.queue_panel.pack(fill="x", pady=(0, 6), before=self.preview_row)
+
+    def _remove_from_queue(self, index):
+        if 0 <= index < len(self.download_queue):
+            self.download_queue.pop(index)
+        self._update_queue_hint()
+        self._refresh_queue_panel()
+
+    def _clear_queue(self):
+        self.download_queue = []
+        self._update_queue_hint()
+        self._refresh_queue_panel()
 
     def _browse_folder(self):
         folder = filedialog.askdirectory(initialdir=self.output_dir.get())
@@ -1010,7 +1128,8 @@ class NWGrabioApp(tk.Tk):
 
         self.download_queue = []
         self._clear_url()
-        self.queue_hint_var.set("Paste a link, details load automatically.")
+        self._update_queue_hint()
+        self._refresh_queue_panel()
 
         self.cancel_flag.clear()
         self.download_btn.state(["disabled"])
@@ -1173,6 +1292,7 @@ class NWGrabioApp(tk.Tk):
                         summary = f"Finished: {completed} succeeded, {failed} failed"
                         self._stop_spinner(final_text=summary)
                         self._show_toast(f"{summary}. See the activity log for details.", bg=ERROR, fg="#FFFFFF")
+                    self._notify(APP_NAME, summary)
                 elif kind == "batch_cancelled":
                     self.progress_bar.stop()
                     self.progress_bar.configure(mode="determinate")

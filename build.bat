@@ -40,6 +40,7 @@ pyinstaller --noconfirm --onedir --windowed ^
   --icon icon.ico ^
   --version-file file_version_info.txt ^
   --collect-all imageio_ffmpeg ^
+  --collect-all pystray ^
   main.py
 
 if not exist dist\NWGrabio\NWGrabio.exe (
