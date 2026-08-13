@@ -10,7 +10,7 @@
 ; build.bat runs this automatically if Inno Setup is installed.
 
 #define MyAppName "NWGrabio"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "Nethum Welikada"
 #define MyAppURL "https://github.com/NethumWelikada"
 #define MyAppExeName "NWGrabio.exe"

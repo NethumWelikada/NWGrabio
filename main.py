@@ -10,6 +10,7 @@
 import io
 import os
 import sys
+import json
 import queue
 import threading
 import subprocess
@@ -36,12 +37,15 @@ except ImportError:
 
 APP_NAME = "NWGrabio"
 APP_TAGLINE = "Grab Anything, From Anywhere."
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.0.0"
 DEVELOPER_NAME = "Nethum Welikada"
 DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
 DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"
 DEVELOPER_GITHUB_LABEL = "github.com/NethumWelikada"
 DEVELOPER_GITHUB_URL = "https://github.com/NethumWelikada"
+GITHUB_REPO = "NethumWelikada/NWGrabio"
+GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+GITHUB_RELEASES_PAGE = f"https://github.com/{GITHUB_REPO}/releases/latest"
 
 
 def resource_path(relative_path):
@@ -127,6 +131,17 @@ def get_ffmpeg_path():
         )
         return "ffmpeg"
     except Exception:
+        return None
+
+
+def parse_version(text):
+    """Turn '1.3.0' or 'v1.3.0' into (1, 3, 0) for comparison. Returns None
+    if the text doesn't look like a version number."""
+    text = text.strip().lstrip("vV")
+    parts = text.split(".")
+    try:
+        return tuple(int(p) for p in parts)
+    except ValueError:
         return None
 
 
@@ -336,6 +351,7 @@ class NWGrabioApp(tk.Tk):
 
         self.bind("<Configure>", self._on_resize)
         self._check_clipboard_for_link()
+        self.after(2000, lambda: self._check_for_updates(manual=False))
         self.after(60, self._fade_in)
 
     # ---------- window chrome ----------
@@ -387,6 +403,7 @@ class NWGrabioApp(tk.Tk):
 
         help_menu = tk.Menu(menubar, tearoff=0, bg=BG_GLASS, fg=FG_TEXT, activebackground=ACCENT, activeforeground="#FFFFFF")
         help_menu.add_command(label="About NWGrabio", command=self._show_about)
+        help_menu.add_command(label="Check for Updates", command=lambda: self._check_for_updates(manual=True))
         help_menu.add_command(label="Visit GitHub", command=lambda: webbrowser.open(DEVELOPER_GITHUB_URL))
         menubar.add_cascade(label="Help", menu=help_menu)
 
@@ -614,6 +631,59 @@ class NWGrabioApp(tk.Tk):
         self.recent_container.pack(fill="both")
         self.recent_container.pack_propagate(False)
         self._refresh_recent_list()
+
+    # ---------- update check ----------
+
+    def _check_for_updates(self, manual=False):
+        threading.Thread(target=self._update_check_worker, args=(manual,), daemon=True).start()
+
+    def _update_check_worker(self, manual):
+        try:
+            req = urllib.request.Request(
+                GITHUB_RELEASES_API, headers={"Accept": "application/vnd.github+json", "User-Agent": "NWGrabio"}
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            latest_tag = data.get("tag_name", "")
+            release_url = data.get("html_url", GITHUB_RELEASES_PAGE)
+
+            current = parse_version(APP_VERSION)
+            latest = parse_version(latest_tag)
+
+            if current is not None and latest is not None and latest > current:
+                self.msg_queue.put(("update_available", (latest_tag, release_url)))
+            elif manual:
+                self.msg_queue.put(("update_none", None))
+        except Exception:
+            if manual:
+                self.msg_queue.put(("update_check_failed", None))
+
+    def _show_update_dialog(self, latest_tag, release_url):
+        win = tk.Toplevel(self)
+        win.title("Update available")
+        win.configure(bg=BG_MAIN)
+        win.geometry("360x180")
+        win.resizable(False, False)
+        win.transient(self)
+        try:
+            win.iconbitmap(resource_path("icon.ico"))
+        except Exception:
+            pass
+
+        tk.Label(win, text="A new version of NWGrabio is available",
+                 bg=BG_MAIN, fg=FG_TEXT, font=("Segoe UI", 11, "bold"),
+                 wraplength=320, justify="left").pack(anchor="w", padx=20, pady=(20, 4))
+        tk.Label(win, text=f"You have {APP_VERSION}. The latest version is {latest_tag.lstrip('vV')}.",
+                 bg=BG_MAIN, fg=FG_MUTED, font=("Segoe UI", 9),
+                 wraplength=320, justify="left").pack(anchor="w", padx=20)
+
+        btn_row = tk.Frame(win, bg=BG_MAIN)
+        btn_row.pack(side="bottom", fill="x", padx=20, pady=20)
+        ttk.Button(btn_row, text="Later", style="Secondary.TButton", command=win.destroy).pack(side="right")
+        ttk.Button(
+            btn_row, text="Download Update", style="Accent.TButton",
+            command=lambda: (webbrowser.open(release_url), win.destroy())
+        ).pack(side="right", padx=(0, 8))
 
     def _show_about(self):
         win = tk.Toplevel(self)
@@ -1021,6 +1091,13 @@ class NWGrabioApp(tk.Tk):
                     self._log(f"Download failed: {payload}", ERROR)
                     self._reset_buttons()
                     self._show_toast("Download failed. See the activity log for details.", bg=ERROR, fg="#FFFFFF")
+                elif kind == "update_available":
+                    latest_tag, release_url = payload
+                    self._show_update_dialog(latest_tag, release_url)
+                elif kind == "update_none":
+                    messagebox.showinfo(APP_NAME, f"You're up to date. NWGrabio {APP_VERSION} is the latest version.")
+                elif kind == "update_check_failed":
+                    messagebox.showinfo(APP_NAME, "Could not check for updates. Check your internet connection and try again.")
         except queue.Empty:
             pass
         self.after(150, self._poll_queue)
