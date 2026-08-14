@@ -530,25 +530,25 @@ class NWGrabioApp(tk.Tk):
         self.option_add("*TCombobox*Listbox*selectBackground", ACCENT)
 
         style.configure("Accent.TButton", background=ACCENT, foreground="#FFFFFF", font=("Segoe UI", 9, "bold"),
-                         padding=6, borderwidth=0)
+                         padding=6, borderwidth=0, focuscolor="")
         style.map("Accent.TButton", background=[("active", ACCENT_HOVER), ("disabled", BORDER)])
 
         style.configure("Secondary.TButton", background=BG_GLASS_LIGHT, foreground=FG_TEXT, font=("Segoe UI", 9),
-                         padding=5, borderwidth=1)
+                         padding=5, borderwidth=1, focuscolor="")
         style.map("Secondary.TButton", background=[("active", BORDER_LIGHT)])
 
         style.configure("Danger.TButton", background=ERROR, foreground="#FFFFFF", font=("Segoe UI", 9, "bold"),
-                         padding=5, borderwidth=0)
+                         padding=5, borderwidth=0, focuscolor="")
         style.map("Danger.TButton", background=[("disabled", BORDER)])
 
         style.configure("Success.TButton", background=SUCCESS, foreground="#FFFFFF", font=("Segoe UI", 9, "bold"),
-                         padding=5, borderwidth=0)
+                         padding=5, borderwidth=0, focuscolor="")
         style.map("Success.TButton", background=[("disabled", BORDER)])
 
         style.configure("Dark.Horizontal.TProgressbar", troughcolor=BG_FIELD, background=ACCENT,
                          bordercolor=BG_FIELD, lightcolor=ACCENT, darkcolor=ACCENT, thickness=7)
 
-        style.configure("TCheckbutton", background=BG_DARK, foreground=FG_TEXT, font=("Segoe UI", 8))
+        style.configure("TCheckbutton", background=BG_DARK, foreground=FG_TEXT, font=("Segoe UI", 8), focuscolor="")
         style.map("TCheckbutton", background=[("active", BG_DARK)])
 
     # ---------- layout ----------
@@ -661,11 +661,11 @@ class NWGrabioApp(tk.Tk):
         self.quality_combo.pack(fill="x", pady=(2, 0))
         ttk.Checkbutton(
             quality_col, text="Download full playlist",
-            variable=self.playlist_var, style="TCheckbutton"
+            variable=self.playlist_var, style="TCheckbutton", takefocus=False
         ).pack(anchor="w", pady=(6, 0))
         ttk.Checkbutton(
             quality_col, text="Also save subtitles (.srt)",
-            variable=self.subtitles_var, style="TCheckbutton"
+            variable=self.subtitles_var, style="TCheckbutton", takefocus=False
         ).pack(anchor="w", pady=(3, 0))
 
         folder_col = tk.Frame(options_row, bg=BG_CARD)
@@ -1215,6 +1215,11 @@ class NWGrabioApp(tk.Tk):
                 ydl_opts["writeautomaticsub"] = True
                 ydl_opts["subtitleslangs"] = ["en"]
                 ydl_opts["subtitlesformat"] = "srt"
+                # A short pause before the subtitle request specifically
+                # helps avoid HTTP 429 (too many requests) from sites that
+                # rate limit subtitle fetches more aggressively than the
+                # video stream itself.
+                ydl_opts["sleep_interval_subtitles"] = 1
 
             if is_audio_only:
                 ydl_opts["postprocessors"] = [
@@ -1222,9 +1227,27 @@ class NWGrabioApp(tk.Tk):
                 ]
                 ydl_opts.pop("merge_output_format", None)
 
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            def attempt_download(opts):
+                with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download([url])
+
+            try:
+                try:
+                    attempt_download(ydl_opts)
+                except Exception as exc:
+                    if self.cancel_flag.is_set():
+                        raise
+                    # If only the subtitle fetch failed (commonly a 429 rate
+                    # limit), retry once without subtitles rather than
+                    # losing the whole video over a captions request.
+                    if self.subtitles_var.get() and "subtitle" in str(exc).lower():
+                        self.msg_queue.put(("status", f"{prefix}Subtitles unavailable right now, downloading video without them..."))
+                        retry_opts = dict(ydl_opts)
+                        for key in ("writesubtitles", "writeautomaticsub", "subtitleslangs", "subtitlesformat", "sleep_interval_subtitles"):
+                            retry_opts.pop(key, None)
+                        attempt_download(retry_opts)
+                    else:
+                        raise
                 completed += 1
                 self.msg_queue.put(("item_done", out_dir))
             except Exception as exc:
