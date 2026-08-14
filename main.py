@@ -42,7 +42,7 @@ except ImportError:
 
 APP_NAME = "NWGrabio"
 APP_TAGLINE = "Grab Anything, From Anywhere."
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 DEVELOPER_NAME = "Nethum Welikada"
 DEVELOPER_PROGRAM = "Master of Engineering in Internetworking"
 DEVELOPER_SCHOOL = "Dalhousie University, Halifax, Nova Scotia, Canada"

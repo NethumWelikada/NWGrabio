@@ -2,6 +2,12 @@
 
 All notable changes to NWGrabio are documented here.
 
+## 1.3.0
+
+### Fixed
+- Subtitle downloads no longer fail the whole download if the subtitle request gets rate limited (HTTP 429). NWGrabio now waits briefly before requesting subtitles, and automatically retries without subtitles if they still can't be fetched, so the video downloads either way.
+- Removed a visual glitch where clicking buttons or checkboxes showed a dashed keyboard-focus outline around them.
+
 ## 1.2.0
 
 ### Added
