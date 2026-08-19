@@ -41,7 +41,7 @@ jobs:
           if (-not (Test-Path "bin\ffmpeg.exe")) { Write-Error "ffmpeg.exe missing"; exit 1 }
 
       - name: Build the Windows installer
-        run: npm run dist -- --win nsis
+        run: npm run dist -- --win nsis --publish never
 
       - name: Rename installer to match the website's expected filename
         run: |
