@@ -21,6 +21,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Create bin directory
+        run: New-Item -ItemType Directory -Force -Path "bin" | Out-Null
+
       - name: Download latest yt-dlp.exe
         run: |
           Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "bin\yt-dlp.exe"
