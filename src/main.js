@@ -207,7 +207,11 @@ ipcMain.handle("ytdlp:fetchInfo", async (event, url) => {
       return;
     }
 
-    const args = ["-j", "--no-warnings", "--skip-download", "--no-playlist", url];
+    const args = [
+      "-j", "--no-warnings", "--skip-download", "--no-playlist",
+      "--extractor-args", "youtube:player_client=android,ios,web",
+      url,
+    ];
     const proc = spawn(ytDlpPath, args);
     let stdout = "";
     let stderr = "";
@@ -277,6 +281,11 @@ ipcMain.handle("ytdlp:download", async (event, { url, quality, outputDir, playli
 
   function buildArgs(includeSubtitles) {
     const a = ["--newline", "--no-warnings", "-f", format, "-o", outTemplate, "--continue"];
+    // YouTube's default web client increasingly requires extra auth tokens
+    // for the actual video stream URL, causing HTTP 403 even when fetching
+    // video info works fine. Falling back through the android and ios
+    // player clients avoids this in most cases.
+    a.push("--extractor-args", "youtube:player_client=android,ios,web");
     if (fs.existsSync(ffmpegPath)) a.push("--ffmpeg-location", ffmpegPath);
     if (!wantsAudioOnly) {
       a.push("--merge-output-format", "mp4");
