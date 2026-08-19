@@ -1,0 +1,60 @@
+name: Build NWGrabio Electron Windows Installer
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'electron-app/**'
+      - '.github/workflows/build-electron.yml'
+  workflow_dispatch: {}
+
+defaults:
+  run:
+    working-directory: electron-app
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Download latest yt-dlp.exe
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "bin\yt-dlp.exe"
+
+      - name: Download ffmpeg (essentials build) and extract ffmpeg.exe
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+          Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_extract"
+          $exe = Get-ChildItem -Path "ffmpeg_extract" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+          Copy-Item $exe.FullName -Destination "bin\ffmpeg.exe"
+
+      - name: Verify bundled binaries are present
+        run: |
+          if (-not (Test-Path "bin\yt-dlp.exe")) { Write-Error "yt-dlp.exe missing"; exit 1 }
+          if (-not (Test-Path "bin\ffmpeg.exe")) { Write-Error "ffmpeg.exe missing"; exit 1 }
+
+      - name: Build the Windows installer
+        run: npm run dist -- --win nsis
+
+      - name: Rename installer to match the website's expected filename
+        run: |
+          $exe = Get-ChildItem -Path "dist" -Filter "*.exe" | Select-Object -First 1
+          Rename-Item -Path $exe.FullName -NewName "NWGrabio-Setup.exe"
+          echo "INSTALLER_PATH=electron-app\dist\NWGrabio-Setup.exe" >> $env:GITHUB_ENV
+
+      - name: Upload installer as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NWGrabio-Setup
+          path: ${{ env.INSTALLER_PATH }}
