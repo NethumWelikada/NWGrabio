@@ -18,6 +18,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4D4D4D; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #6B6B6B; }
+::-webkit-scrollbar-corner { background: transparent; }
+
 body {
   background: var(--bg);
   color: var(--text);
