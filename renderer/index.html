@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NWGrabio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="titlebar-brand">
+    <span class="brand-mark"></span>
+    <span class="titlebar-text">NWGrabio | Grab Anything, From Anywhere.</span>
+  </div>
+</div>
+
+<div class="app">
+  <header class="app-header">
+    <div class="brand-row">
+      <span class="brand-mark large"></span>
+      <div>
+        <h1>NWGrabio</h1>
+        <p class="tagline">Grab Anything, From Anywhere.</p>
+      </div>
+    </div>
+    <div class="badge-row" id="badge-row">
+      <span class="badge">YouTube</span>
+      <span class="badge">Facebook</span>
+      <span class="badge">TikTok</span>
+      <span class="badge">Instagram</span>
+      <span class="badge">Twitter / X</span>
+      <span class="badge">Vimeo</span>
+      <span class="badge">+1000 more</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="section-label">Add a link</div>
+    <div class="row">
+      <input id="url-input" type="text" placeholder="Paste a YouTube, Facebook, TikTok, Instagram link..." autocomplete="off">
+      <button class="btn secondary" id="paste-btn">Paste</button>
+      <button class="btn secondary" id="queue-btn">+ Queue</button>
+      <button class="btn secondary" id="clear-btn">Clear</button>
+    </div>
+    <p class="hint" id="queue-hint">Paste a link, details load automatically.</p>
+
+    <div class="queue-panel" id="queue-panel" hidden></div>
+
+    <div class="preview" id="preview">
+      <div class="preview-thumb" id="preview-thumb"></div>
+      <div class="preview-text" id="preview-text">Paste a video or page link above. NWGrabio fetches details automatically, no extra clicks.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-label">Download settings</div>
+    <div class="settings-row">
+      <div class="settings-col">
+        <label class="field-label">Quality</label>
+        <div class="select2" id="quality-select">
+          <div class="select2-field" id="quality-field">
+            <span id="quality-value">Best Available (Auto, up to 8K)</span>
+            <span class="select2-arrow">&#9662;</span>
+          </div>
+        </div>
+        <label class="checkbox-row"><input type="checkbox" id="playlist-check"> Download full playlist</label>
+        <label class="checkbox-row"><input type="checkbox" id="subtitles-check"> Also save subtitles (.srt)</label>
+      </div>
+      <div class="settings-col">
+        <label class="field-label">Save to folder</label>
+        <div class="row">
+          <input id="folder-input" type="text" readonly>
+          <button class="btn secondary" id="browse-btn">Browse</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <section class="card">
+    <div class="section-label">Download</div>
+    <div class="row">
+      <button class="btn primary" id="download-btn">Download</button>
+      <button class="btn danger" id="cancel-btn" disabled>Cancel</button>
+      <button class="btn success" id="open-folder-btn" disabled>Open Folder</button>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <p class="status" id="status-text">Ready</p>
+  </section>
+
+  <section class="body-row">
+    <div class="log-col">
+      <div class="section-label">Activity log</div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+    <div class="recent-col">
+      <div class="section-label">Recent downloads</div>
+      <div class="recent-box" id="recent-box">
+        <div class="muted-note">Nothing yet.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    <span id="footer-credit">Developed by Nethum Welikada &middot; Master of Engineering in Internetworking, Dalhousie University, Halifax, Nova Scotia, Canada</span>
+    <span class="footer-links">
+      <a href="#" id="footer-website">Website</a>
+      <a href="#" id="footer-github">GitHub</a>
+      <a href="#" id="footer-about">About</a>
+    </span>
+  </footer>
+</div>
+
+<div class="modal-overlay" id="about-overlay" hidden>
+  <div class="modal">
+    <div class="brand-row">
+      <span class="brand-mark large"></span>
+      <div>
+        <h1>NWGrabio</h1>
+        <p class="tagline">Grab Anything, From Anywhere.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="kv"><span>Version</span><span id="about-version">-</span></div>
+      <div class="kv"><span>Developer</span><span>Nethum Welikada</span></div>
+      <div class="kv"><span>Program</span><span>Master of Engineering in Internetworking</span></div>
+      <div class="kv"><span>University</span><span>Dalhousie University, Halifax, Nova Scotia, Canada</span></div>
+      <a href="#" id="about-website" class="modal-link">nethumwelikada.github.io/NWGrabio</a>
+      <a href="#" id="about-github" class="modal-link">github.com/NethumWelikada</a>
+      <p class="muted-note" style="margin-top:12px;">Licensed under the MIT License. Built with yt-dlp and ffmpeg, open source projects used under their own licenses.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="about-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>
