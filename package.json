@@ -1,6 +1,6 @@
 {
   "name": "nwgrabio-electron",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Grab Anything, From Anywhere. A free, open source Windows app for downloading video and audio from YouTube, TikTok, Instagram, Facebook, and 1000+ other sites.",
   "main": "src/main.js",
   "author": "Nethum Welikada",
