@@ -7,7 +7,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, nativeImage } = 
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { spawn } = require("child_process");
+const { spawn, exec } = require("child_process");
 const https = require("https");
 const Store = require("electron-store");
 
@@ -154,6 +154,20 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  // Don't leave an orphaned yt-dlp/ffmpeg process running in the
+  // background if the app is closed while a download is in progress.
+  if (activeDownloadProcess) {
+    const pid = activeDownloadProcess.pid;
+    if (process.platform === "win32") {
+      exec(`taskkill /pid ${pid} /T /F`, () => {});
+    } else {
+      try {
+        activeDownloadProcess.kill("SIGKILL");
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
 });
 
 // ---------- IPC: settings ----------
@@ -254,10 +268,19 @@ const QUALITY_FORMATS = {
 ipcMain.handle("ytdlp:cancel", () => {
   cancelRequested = true;
   if (activeDownloadProcess) {
-    try {
-      activeDownloadProcess.kill();
-    } catch (e) {
-      /* ignore */
+    const pid = activeDownloadProcess.pid;
+    if (process.platform === "win32") {
+      // A plain .kill() on Windows often fails to actually terminate the
+      // process, especially since yt-dlp spawns ffmpeg as a child process
+      // during merging. taskkill with /T (tree) /F (force) reliably kills
+      // the whole process tree.
+      exec(`taskkill /pid ${pid} /T /F`, () => {});
+    } else {
+      try {
+        activeDownloadProcess.kill("SIGKILL");
+      } catch (e) {
+        /* ignore */
+      }
     }
   }
   return true;
