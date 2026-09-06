@@ -207,11 +207,7 @@ ipcMain.handle("ytdlp:fetchInfo", async (event, url) => {
       return;
     }
 
-    const args = [
-      "-j", "--no-warnings", "--skip-download", "--no-playlist",
-      "--extractor-args", "youtube:player_client=android,ios,web",
-      url,
-    ];
+    const args = ["-j", "--no-warnings", "--skip-download", "--no-playlist", url];
     const proc = spawn(ytDlpPath, args);
     let stdout = "";
     let stderr = "";
@@ -279,13 +275,16 @@ ipcMain.handle("ytdlp:download", async (event, { url, quality, outputDir, playli
   const format = QUALITY_FORMATS[quality] || QUALITY_FORMATS.best;
   const outTemplate = path.join(outputDir, "%(title)s.%(ext)s");
 
-  function buildArgs(includeSubtitles) {
+  function buildArgs({ includeSubtitles, restrictedClient }) {
     const a = ["--newline", "--no-warnings", "-f", format, "-o", outTemplate, "--continue"];
-    // YouTube's default web client increasingly requires extra auth tokens
-    // for the actual video stream URL, causing HTTP 403 even when fetching
-    // video info works fine. Falling back through the android and ios
-    // player clients avoids this in most cases.
-    a.push("--extractor-args", "youtube:player_client=android,ios,web");
+    if (restrictedClient) {
+      // Fallback only: YouTube's web client occasionally requires extra
+      // auth tokens for the actual video stream, causing HTTP 403. The
+      // android/ios clients avoid that, but they do not expose resolutions
+      // above 1080p at all, so this is only used after a real 403, not by
+      // default, to avoid capping everyone's max quality unnecessarily.
+      a.push("--extractor-args", "youtube:player_client=android,ios");
+    }
     if (fs.existsSync(ffmpegPath)) a.push("--ffmpeg-location", ffmpegPath);
     if (!wantsAudioOnly) {
       a.push("--merge-output-format", "mp4");
@@ -301,7 +300,7 @@ ipcMain.handle("ytdlp:download", async (event, { url, quality, outputDir, playli
   }
 
   return new Promise((resolve) => {
-    const runOnce = (args, allowSubtitleFallback) => {
+    const runOnce = (args, { allowSubtitleFallback, allow403Fallback }) => {
       const proc = spawn(ytDlpPath, args);
       activeDownloadProcess = proc;
       let lastFile = null;
@@ -348,7 +347,21 @@ ipcMain.handle("ytdlp:download", async (event, { url, quality, outputDir, playli
         }
         if (allowSubtitleFallback && subtitles && /subtitle/i.test(stderrBuf)) {
           event.sender.send("ytdlp:status", "Subtitles unavailable right now, downloading video without them...");
-          runOnce(buildArgs(false), false);
+          runOnce(buildArgs({ includeSubtitles: false, restrictedClient: false }), {
+            allowSubtitleFallback: false,
+            allow403Fallback,
+          });
+          return;
+        }
+        if (allow403Fallback && /403/.test(stderrBuf)) {
+          event.sender.send(
+            "ytdlp:status",
+            "This video blocked the standard request, retrying with a compatible mode (may limit max quality for this video)..."
+          );
+          runOnce(buildArgs({ includeSubtitles: subtitles, restrictedClient: true }), {
+            allowSubtitleFallback: subtitles,
+            allow403Fallback: false,
+          });
           return;
         }
         resolve({ ok: false, error: stderrBuf.trim() || `yt-dlp exited with code ${code}` });
@@ -360,7 +373,10 @@ ipcMain.handle("ytdlp:download", async (event, { url, quality, outputDir, playli
       });
     };
 
-    runOnce(buildArgs(true), true);
+    runOnce(buildArgs({ includeSubtitles: true, restrictedClient: false }), {
+      allowSubtitleFallback: true,
+      allow403Fallback: true,
+    });
   });
 });
 
